@@ -90,3 +90,9 @@ Transport (CLI/Hotkey/HTTP) → NudgeEngine → Hive Agent → ProcessingResult
 
 **DONE:** packages/core (engine, CLI, 33 tests, all transports, soul system, presets)
 **TODO:** packages/web (Next.js site), packages/api (hosted FastAPI backend)
+
+## Design System
+Always read DESIGN.md before making any visual or UI decisions.
+All font choices, colors, spacing, and aesthetic direction are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that doesn't match DESIGN.md.
