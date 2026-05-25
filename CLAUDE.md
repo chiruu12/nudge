@@ -1,6 +1,14 @@
 # Nudge
 
-Voice assistant that gets things done. Speak, and Nudge handles the rest.
+Voice assistant that gets things done. Press a hotkey, speak, and Nudge handles the rest.
+
+## Hackathon Context
+
+Building for the **OpenAI x Outskill AI Builders Hackathon** (May 26-30, 2026).
+- MVP deadline: May 28 (product brief + working product)
+- Final submission: May 30 (go-live product)
+- See `.context/plan.md` for day-by-day execution plan
+- See `.context/hackathon.md` for rules and details
 
 ## Directory Structure
 
@@ -61,10 +69,24 @@ Transport (CLI/Hotkey/HTTP) → NudgeEngine → Hive Agent → ProcessingResult
 - Hive provides: Agent runtime, tool system, STT providers, LLM providers, intent routing
 - Config lives at ~/.nudge/ (config.yaml, soul.md, data/, logs/)
 
+## Important Context Files
+
+- `.context/plan.md` — Day-by-day hackathon execution plan with checklist
+- `.context/architecture.md` — Full architecture, product tiers, hosted STT flow
+- `.context/hackathon.md` — Hackathon rules, dates, prizes
+- `.context/mutter-reference.md` — Reference to original codebase (now private)
+
 ## Conventions
 
 - Read existing files before creating new ones — match patterns
 - Keep commit messages short: one line, under 50 characters
 - Describe WHAT shipped, not HOW you got there
-- Never expose internal process or iteration history in public output
+- **Never expose internal process or iteration history in public output**
+- No "after AI discussion", no "based on grilling session", no process narration
+- The GitHub profile should look like a skilled developer shipping clean work
 - No multi-paragraph commit bodies unless truly necessary
+
+## What's Done vs TODO
+
+**DONE:** packages/core (engine, CLI, 33 tests, all transports, soul system, presets)
+**TODO:** packages/web (Next.js site), packages/api (hosted FastAPI backend)
