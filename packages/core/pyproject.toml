@@ -1,5 +1,5 @@
 [project]
-name = "nudge"
+name = "nudge-ai"
 version = "0.1.0"
 description = "Voice assistant that actually gets things done. Speak, and Nudge handles the rest."
 authors = [{ name = "chiruu12" }]

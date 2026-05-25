@@ -86,7 +86,7 @@ the other half slides away, and the full page for that persona loads below.
 │     [Instrument Sans, 20px, #A3A3A3]                            │
 │                                                                 │
 │     ┌──────────────────────┐  ┌─────────────────┐              │
-│     │ $ pip install nudge  │  │ ⭐ Star on GitHub│              │
+│     │ $ pip install nudge-ai  │  │ ⭐ Star on GitHub│              │
 │     │ [#FF6B35, copy btn]  │  │ [border #262626] │              │
 │     └──────────────────────┘  └─────────────────┘              │
 │                                                                 │
@@ -263,7 +263,7 @@ the other half slides away, and the full page for that persona loads below.
 │                                                                 │
 │   DEV:                                                          │
 │   ┌──────────────────────────────────┐                          │
-│   │  $ pip install nudge             │  [click to copy]        │
+│   │  $ pip install nudge-ai             │  [click to copy]        │
 │   └──────────────────────────────────┘                          │
 │                                                                 │
 │   PM:                                                           │
@@ -345,7 +345,7 @@ Persona stored in localStorage so return visits skip the split.
 >
 > **After selection — Developer version:**
 > - Hero: "Your voice, your tools, your rules." + terminal mockup with pipeline trace
-> - CTA: `pip install nudge` copy button + Star on GitHub
+> - CTA: `pip install nudge-ai` copy button + Star on GitHub
 >
 > **After selection — Team Lead version:**
 > - Hero: "Speak it. It's done." + app GUI mockup (task list, alarms, voice button)

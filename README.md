@@ -21,7 +21,7 @@ You speak → STT transcribes → Intent classified → Agent acts → Done
 ## Install
 
 ```bash
-pip install nudge
+pip install nudge-ai
 nudge setup
 ```
 

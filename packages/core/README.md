@@ -7,7 +7,7 @@ Built on [Hive](https://github.com/chiruu12/Hive), a local-first agent framework
 ## Install
 
 ```bash
-pip install nudge
+pip install nudge-ai
 ```
 
 ## Quick Start
