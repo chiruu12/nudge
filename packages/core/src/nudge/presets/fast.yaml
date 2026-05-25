@@ -1,0 +1,10 @@
+stt_provider: groq
+llm_provider: groq
+llm_tier: lite
+hotkey: cmd+shift+n
+sample_rate: 16000
+notification_title: Nudge
+intents:
+  task: user wants to create a todo
+  note: user wants to save info
+  query: user is asking something

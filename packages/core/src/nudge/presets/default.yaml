@@ -1,0 +1,13 @@
+stt_provider: groq
+llm_provider: groq
+llm_tier: standard
+hotkey: cmd+shift+n
+sample_rate: 16000
+notification_title: Nudge
+intents:
+  task: user wants to create or manage a todo item
+  alarm: user wants to set a timer or alarm
+  note: user wants to save or recall information
+  query: user is asking a question
+  link: user wants to save or look up a URL
+  clipboard: user wants to copy something to clipboard

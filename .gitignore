@@ -31,3 +31,15 @@ tmp/
 # Python
 .ruff_cache/
 *.egg-info/
+# Nudge venv and build artifacts
+.venv/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+.env
+*.pyc
+node_modules/
+.next/

@@ -1,0 +1,10 @@
+stt_provider: whisper
+llm_provider: ollama
+llm_tier: standard
+hotkey: cmd+shift+n
+sample_rate: 16000
+notification_title: Nudge
+intents:
+  task: user wants to create or manage a todo item
+  note: user wants to save information
+  query: user is asking a question
