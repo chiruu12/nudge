@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from importlib.metadata import version as pkg_version
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +52,7 @@ def create_app() -> FastAPI:
             pass
         await engine.shutdown()
 
-    server = FastAPI(title="Nudge", version="0.1.0", lifespan=lifespan)
+    server = FastAPI(title="Nudge", version=pkg_version("nudge-ai"), lifespan=lifespan)
     server.add_middleware(
         CORSMiddleware,
         allow_origins=LOCAL_WEB_ORIGINS,
@@ -61,8 +62,7 @@ def create_app() -> FastAPI:
 
     @server.get("/health")
     async def health():
-        from importlib.metadata import version
-        return {"status": "ok", "version": version("nudge-ai")}
+        return {"status": "ok", "version": pkg_version("nudge-ai")}
 
     @server.post("/api/process")
     async def process_text(body: TextInput):
