@@ -250,7 +250,60 @@ the other half slides away, and the full page for that persona loads below.
 
 ---
 
-## Section 5: Final CTA (SHARED — CTA text differs per persona)
+## Section 5: Integrations Roadmap (SHARED — content adjusts per persona)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   Nudge connects to your world                                  │
+│   [Cabinet Grotesk, 36px]                                       │
+│                                                                 │
+│   coming soon                                                   │
+│   [#FF6B35, uppercase, small, tracking-wide]                    │
+│                                                                 │
+│   IF DEVELOPER:                                                 │
+│   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │
+│   │ Codex  │ │ Claude │ │ VS Code│ │ Cursor │ │ GitHub │      │
+│   │  [logo]│ │  Code  │ │  [logo]│ │  [logo]│ │  [logo]│      │
+│   │        │ │  [logo]│ │        │ │        │ │        │      │
+│   └────────┘ └────────┘ └────────┘ └────────┘ └────────┘      │
+│                                                                 │
+│   "Codex, fix the auth bug"  →  Codex opens with your prompt   │
+│   "Push to GitHub"           →  commits and pushes              │
+│   [JetBrains Mono, #A3A3A3, showing voice → action examples]  │
+│                                                                 │
+│   IF TEAM LEAD:                                                 │
+│   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │
+│   │ Slack  │ │WhatsApp│ │ Notion │ │ Linear │ │ Gmail  │      │
+│   │  [logo]│ │  [logo]│ │  [logo]│ │  [logo]│ │  [logo]│      │
+│   │        │ │        │ │        │ │        │ │        │      │
+│   └────────┘ └────────┘ └────────┘ └────────┘ └────────┘      │
+│                                                                 │
+│   "Send the update to #product"  →  Slack message drafted      │
+│   "Create a ticket for the bug"  →  Linear issue created       │
+│   [Instrument Sans, #A3A3A3, showing voice → action examples] │
+│                                                                 │
+│   ──────────────────────────────────────────────────────────    │
+│                                                                 │
+│   Skills system — plug in new capabilities                      │
+│   [#737373, small text]                                         │
+│                                                                 │
+│   Context flows between your tools.                             │
+│   Your IDE knowledge feeds your Slack messages.                 │
+│   Your meeting notes become tasks.                              │
+│   Nudge is the glue.                                            │
+│   [Instrument Sans, 16px, #A3A3A3]                              │
+│                                                                 │
+│   [Tool logos: grayscale by default, glow on hover]            │
+│   [The whole section has a subtle "coming soon" overlay feel]  │
+│   [Not fake — clearly roadmap, but compelling]                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Section 6: Final CTA (SHARED — CTA text differs per persona)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -301,6 +354,8 @@ Split Screen (full viewport, no scroll)
   Features grid (shared, examples adjust per persona)
         ↓
   Presets comparison (shared)
+        ↓
+  Integrations roadmap (persona-specific tool logos, "coming soon")
         ↓
   Final CTA (persona-specific text)
         ↓
@@ -355,6 +410,7 @@ Persona stored in localStorage so return visits skip the split.
 > - Pipeline visualization (4 stages with animated orange glow connectors)
 > - Features grid (6 cards with voice command examples)
 > - Presets comparison (Fast/Default/Offline, interactive)
+> - Integrations roadmap: "coming soon" section with grayscale tool logos that glow on hover. Dev: Codex, Claude Code, VS Code, Cursor, GitHub. PM: Slack, WhatsApp, Notion, Linear, Gmail. Voice command examples below each set. Shows platform vision without claiming shipped features.
 > - Final CTA with waveform background
 >
 > **Feel:** The split screen should feel like choosing between two worlds. Left side has terminal grain texture, scan-line effect, hacker energy. Right side is clean, polished, professional. The divider glowing orange is the moment of delight. After choosing, the page feels cohesive and premium — Vercel's typography discipline meets Warp's warmth.
