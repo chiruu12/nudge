@@ -1,5 +1,5 @@
 stt_provider: groq
-llm_provider: groq
+llm_provider: openai
 llm_tier: standard
 hotkey: cmd+shift+n
 sample_rate: 16000

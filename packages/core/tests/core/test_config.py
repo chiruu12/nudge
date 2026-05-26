@@ -42,6 +42,12 @@ class TestNudgeConfig:
         cfg = NudgeConfig.from_preset("fast")
         assert cfg.llm_tier == "lite"
 
+    def test_from_preset_openai(self) -> None:
+        cfg = NudgeConfig.from_preset("openai")
+        assert cfg.llm_provider == "openai"
+        assert cfg.stt_provider == "groq"
+        assert "launch" in cfg.intents
+
     def test_from_preset_missing(self) -> None:
         with pytest.raises(FileNotFoundError):
             NudgeConfig.from_preset("nonexistent_preset")

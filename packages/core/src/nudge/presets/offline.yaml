@@ -8,3 +8,4 @@ intents:
   task: user wants to create or manage a todo item
   note: user wants to save information
   query: user is asking a question
+  launch: user wants to open an app or coding tool

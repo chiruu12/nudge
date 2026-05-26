@@ -32,6 +32,7 @@ class NudgeConfig(BaseModel):
             "query": "user is asking a question",
             "link": "user wants to save or look up a URL",
             "clipboard": "user wants to copy something to clipboard",
+            "launch": "user wants to open an app or coding tool",
         }
     )
 

@@ -168,6 +168,22 @@ class NudgeEngine:
             intent = await self._router.classify(text)
             t_intent = time.time()
 
+            # Handle launch intent directly — no agent needed
+            if intent.intent == "launch":
+                response = self._handle_launch(text)
+                result = ProcessingResult(
+                    text=text,
+                    intent=intent.intent,
+                    confidence=intent.confidence,
+                    response=response,
+                    stt_ms=int((t_stt - t0) * 1000) if from_audio else 0,
+                    intent_ms=int((t_intent - t_intent_start) * 1000),
+                    duration_ms=int((time.time() - t0) * 1000),
+                )
+                session.set_result(result)
+                self._track_session(session)
+                return result
+
             response = await self._agent.run_once(text)
             t_agent = time.time()
 
@@ -192,6 +208,28 @@ class NudgeEngine:
         session.set_result(result)
         self._track_session(session)
         return result
+
+    def _handle_launch(self, text: str) -> str:
+        """Parse launch command and execute."""
+        from nudge.tools.launcher import launch_app
+
+        # Remove common prefixes
+        clean = text.lower()
+        for prefix in ["open ", "launch ", "start ", "run "]:
+            if clean.startswith(prefix):
+                clean = clean[len(prefix) :]
+                break
+
+        # Split on "and", "with", "to" to separate app from prompt
+        prompt = ""
+        for sep in [" and ", " with ", " to "]:
+            if sep in clean:
+                parts = clean.split(sep, 1)
+                clean = parts[0].strip()
+                prompt = parts[1].strip()
+                break
+
+        return launch_app(clean, prompt)
 
     async def transcribe(self, audio: bytes, sample_rate: int = 16000) -> str:
         """Transcribe audio without processing. Useful for preview."""
