@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import cast
 
 from hive.stt import AudioRecorder
 
@@ -27,7 +28,7 @@ class RecordingManager:
 
     @property
     def is_recording(self) -> bool:
-        return self._recorder.is_recording
+        return bool(self._recorder.is_recording)
 
     @property
     def elapsed_ms(self) -> int:
@@ -47,7 +48,7 @@ class RecordingManager:
         if not self._recorder.is_recording:
             return None
 
-        audio = self._recorder.stop()
+        audio = cast(bytes, self._recorder.stop())
         elapsed = int((time.time() - self._start_time) * 1000)
         logger.debug("Recording stopped: %d bytes, %d ms", len(audio), elapsed)
 

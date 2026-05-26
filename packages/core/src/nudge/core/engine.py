@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from dotenv import load_dotenv
 from hive import (
@@ -127,13 +128,18 @@ class NudgeEngine:
         t0 = time.time()
 
         try:
-            transcription = await self._stt.transcribe_bytes(audio, sample_rate=sample_rate)
-            text = transcription.text.strip()
+            transcription = await asyncio.wait_for(
+                self._stt.transcribe_bytes(audio, sample_rate=sample_rate),
+                timeout=self._config.stt_timeout_s,
+            )
+            text = str(transcription.text).strip()
 
             if not text:
                 result = ProcessingResult(
                     text="",
                     response="",
+                    session_id=session.session_id,
+                    provider_name=self._config.stt_provider,
                     duration_ms=int((time.time() - t0) * 1000),
                 )
                 session.set_result(result)
@@ -143,11 +149,29 @@ class NudgeEngine:
             session.set_text(text)
             return await self._run_pipeline(session, text, t0=t0, from_audio=True)
 
+        except TimeoutError:
+            logger.error("STT timed out [%s]", session.session_id)
+            result = ProcessingResult(
+                text="",
+                error=f"STT timed out after {self._config.stt_timeout_s}s",
+                error_type="timeout",
+                error_source="stt",
+                provider_name=self._config.stt_provider,
+                session_id=session.session_id,
+                duration_ms=int((time.time() - t0) * 1000),
+            )
+            session.set_result(result)
+            self._track_session(session)
+            return result
         except Exception as e:
-            logger.error("Audio processing failed: %s", e)
+            logger.error("Audio processing failed [%s]: %s", session.session_id, e)
             result = ProcessingResult(
                 text="",
                 error=str(e),
+                error_type="provider",
+                error_source="stt",
+                provider_name=self._config.stt_provider,
+                session_id=session.session_id,
                 duration_ms=int((time.time() - t0) * 1000),
             )
             session.set_result(result)
@@ -163,12 +187,16 @@ class NudgeEngine:
     ) -> ProcessingResult:
         """Classify intent and run agent. Logs the given session (preserving audio metadata)."""
         t0 = t0 or time.time()
+        stage = "intent"
 
         try:
             t_stt = time.time()  # after STT
 
             t_intent_start = time.time()
-            intent = await self._router.classify(text)
+            intent = await asyncio.wait_for(
+                self._router.classify(text),
+                timeout=self._config.intent_timeout_s,
+            )
             t_intent = time.time()
 
             # Handle launch intent directly — no agent needed
@@ -182,12 +210,18 @@ class NudgeEngine:
                     stt_ms=int((t_stt - t0) * 1000) if from_audio else 0,
                     intent_ms=int((t_intent - t_intent_start) * 1000),
                     duration_ms=int((time.time() - t0) * 1000),
+                    provider_name=self._config.llm_provider,
+                    session_id=session.session_id,
                 )
                 session.set_result(result)
                 self._track_session(session)
                 return result
 
-            response = await self._agent.run_once(text)
+            stage = "agent"
+            response = await asyncio.wait_for(
+                self._agent.run_once(text),
+                timeout=self._config.agent_timeout_s,
+            )
             t_agent = time.time()
 
             result = ProcessingResult(
@@ -199,12 +233,29 @@ class NudgeEngine:
                 intent_ms=int((t_intent - t_intent_start) * 1000),
                 agent_ms=int((t_agent - t_intent) * 1000),
                 duration_ms=int((t_agent - t0) * 1000),
+                provider_name=self._config.llm_provider,
+                session_id=session.session_id,
+            )
+        except TimeoutError:
+            logger.error("%s timed out [%s]", stage.title(), session.session_id)
+            result = ProcessingResult(
+                text=text,
+                error=f"{stage.title()} timed out — check your network or try a different preset",
+                error_type="timeout",
+                error_source=stage,
+                provider_name=self._config.llm_provider,
+                session_id=session.session_id,
+                duration_ms=int((time.time() - t0) * 1000),
             )
         except Exception as e:
-            logger.error("Processing failed: %s", e)
+            logger.error("%s failed [%s]: %s", stage.title(), session.session_id, e)
             result = ProcessingResult(
                 text=text,
                 error=str(e),
+                error_type="provider",
+                error_source=stage,
+                provider_name=self._config.llm_provider,
+                session_id=session.session_id,
                 duration_ms=int((time.time() - t0) * 1000),
             )
 
@@ -216,14 +267,18 @@ class NudgeEngine:
         """Parse launch command and execute."""
         from nudge.tools.launcher import launch_app
 
-        # Remove common prefixes
-        clean = text.lower()
-        for prefix in ["open ", "launch ", "start ", "run "]:
-            if clean.startswith(prefix):
-                clean = clean[len(prefix) :]
+        command = text.strip()
+        lowered = command.casefold()
+        for verb in ["open", "launch", "start", "run"]:
+            if lowered == verb:
+                command = ""
+                break
+            prefix = f"{verb} "
+            if lowered.startswith(prefix):
+                command = command[len(prefix) :].lstrip()
                 break
 
-        if not clean.strip():
+        if not command:
             from nudge.tools.launcher import list_available_apps
 
             available = list_available_apps()
@@ -233,30 +288,34 @@ class NudgeEngine:
 
         # Split on "and", "with", "to" to separate app from prompt
         prompt = ""
+        lowered = command.casefold()
         for sep in [" and ", " with ", " to "]:
-            if sep in clean:
-                parts = clean.split(sep, 1)
-                clean = parts[0].strip()
-                prompt = parts[1].strip()
+            position = lowered.find(sep)
+            if position != -1:
+                prompt = command[position + len(sep) :].strip()
+                command = command[:position].strip()
                 break
 
-        return launch_app(clean, prompt)
+        return launch_app(command, prompt)
 
     async def transcribe(self, audio: bytes, sample_rate: int = 16000) -> str:
         """Transcribe audio without processing. Useful for preview."""
-        result = await self._stt.transcribe_bytes(audio, sample_rate=sample_rate)
-        return result.text.strip()
+        result = await asyncio.wait_for(
+            self._stt.transcribe_bytes(audio, sample_rate=sample_rate),
+            timeout=self._config.stt_timeout_s,
+        )
+        return str(result.text).strip()
 
     # ── Data access for host apps ────────────────────────────────
 
     async def get_tasks(self, status: str = "pending") -> list[dict[str, Any]]:
-        return await self._task_tk.query_all_tasks(status)
+        return cast(list[dict[str, Any]], await self._task_tk.query_all_tasks(status))
 
     async def get_alarms(self) -> list[dict[str, Any]]:
-        return await self._alarm_tk.query_all_pending_alarms()
+        return cast(list[dict[str, Any]], await self._alarm_tk.query_all_pending_alarms())
 
     def get_notes(self, limit: int = 20) -> list[dict[str, object]]:
-        return self._knowledge_tk.query_recent(limit)
+        return cast(list[dict[str, object]], self._knowledge_tk.query_recent(limit))
 
     def get_recent_sessions(self, limit: int = 20) -> list[VoiceSession]:
         return list(reversed(self._sessions[-limit:]))
@@ -288,4 +347,4 @@ class NudgeEngine:
             with open(self._log_path, "a") as f:
                 f.write(json.dumps(session.to_log_dict()) + "\n")
         except Exception as e:
-            logger.debug("Session log failed: %s", e)
+            logger.warning("Session log write failed: %s", e)

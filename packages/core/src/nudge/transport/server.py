@@ -14,6 +14,12 @@ from nudge.core.engine import NudgeEngine
 from nudge.core.logging import setup_logging
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+LOCAL_WEB_ORIGINS = [
+    "http://localhost",
+    "http://localhost:3000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:3000",
+]
 
 
 class TextInput(BaseModel):
@@ -48,10 +54,14 @@ def create_app() -> FastAPI:
     server = FastAPI(title="Nudge", version="0.1.0", lifespan=lifespan)
     server.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost", "http://127.0.0.1"],
+        allow_origins=LOCAL_WEB_ORIGINS,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )
+
+    @server.get("/health")
+    async def health():
+        return {"status": "ok", "version": "0.1.0"}
 
     @server.post("/api/process")
     async def process_text(body: TextInput):

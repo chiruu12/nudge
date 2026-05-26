@@ -5,10 +5,19 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+from typing import NotRequired, TypedDict
 
 logger = logging.getLogger(__name__)
 
-APPS = {
+
+class AppDefinition(TypedDict):
+    cmd: str
+    args_template: list[str]
+    name: str
+    mac_bundle: NotRequired[str]
+
+
+APPS: dict[str, AppDefinition] = {
     "codex": {
         "cmd": "codex",
         "args_template": ["{prompt}"],

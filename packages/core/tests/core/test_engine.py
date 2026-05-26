@@ -134,6 +134,12 @@ class TestNudgeEngine:
         result = engine._handle_launch("open ")
         assert "Which app" in result
 
+    def test_handle_launch_preserves_prompt_case(self, engine: NudgeEngine) -> None:
+        with patch("nudge.tools.launcher.launch_app", return_value="Launched.") as launch_app:
+            engine._handle_launch("Open Codex with Fix AuthToken in README.md")
+
+        launch_app.assert_called_once_with("Codex", "Fix AuthToken in README.md")
+
     @pytest.mark.asyncio
     async def test_shutdown(self, engine: NudgeEngine) -> None:
         await engine.shutdown()

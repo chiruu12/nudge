@@ -65,5 +65,5 @@ class TestNudgeConfig:
     def test_load_malformed_yaml(self, tmp_path: Path) -> None:
         bad = tmp_path / "bad.yaml"
         bad.write_text(": invalid: yaml: [[[")
-        cfg = NudgeConfig.load(bad)
-        assert cfg.stt_provider == "groq"  # falls back to defaults
+        with pytest.raises(ValueError, match="Invalid Nudge configuration"):
+            NudgeConfig.load(bad)

@@ -31,6 +31,22 @@ timezone:
 - Add context about your projects, work style, etc.
 """
 
+
+def _print_actionable_error(error: str) -> None:
+    err = error.lower()
+    if "timed out" in err or "timeout" in err:
+        console.print(
+            "  [red]✗[/red] Provider timed out. "
+            "Try: [cyan]nudge preset fast[/cyan] or check your internet"
+        )
+    elif "api key" in err or "authentication" in err or "unauthorized" in err:
+        console.print("  [red]✗[/red] API key issue. Run: [cyan]nudge setup[/cyan]")
+    elif "connection" in err or "connect" in err:
+        console.print("  [red]✗[/red] Can't reach provider. Try: [cyan]nudge preset offline[/cyan]")
+    else:
+        console.print(f"  [red]✗ {error}[/red]")
+
+
 soul_app = typer.Typer(help="Manage your soul.md — personalize Nudge.")
 
 
@@ -131,7 +147,7 @@ def default(ctx: typer.Context) -> None:
                 console.print(f"  {separator}")
 
                 if result.error:
-                    console.print(f"  [red]✗ {result.error}[/red]")
+                    _print_actionable_error(result.error)
                 elif result.response:
                     console.print(
                         f"  [green]✓[/green] {result.response}  [dim]{result.duration_ms}ms[/dim]"
@@ -208,63 +224,68 @@ def test() -> None:
 
     async def _test() -> None:
         engine = NudgeEngine(cfg)
-        rec = RecordingManager(sample_rate=cfg.sample_rate)
+        try:
+            rec = RecordingManager(sample_rate=cfg.sample_rate)
 
-        console.print("\n[bold]Nudge Test[/bold]")
-        console.print(f"  STT: {engine.stt.__class__.__name__}")
+            console.print("\n[bold]Nudge Test[/bold]")
+            console.print(f"  STT: {engine.stt.__class__.__name__}")
 
-        console.print("  [red]● Recording 2 seconds...[/red]")
-        rec.start()
-        await asyncio.sleep(2)
-        audio = rec.stop()
+            console.print("  [red]● Recording 2 seconds...[/red]")
+            rec.start()
+            await asyncio.sleep(2)
+            audio = rec.stop()
 
-        if audio is None:
-            console.print("  [yellow]Too short[/yellow]")
-            return
+            if audio is None:
+                console.print("  [yellow]Too short[/yellow]")
+                return
 
-        console.print(f"  Captured {len(audio)} bytes")
+            console.print(f"  Captured {len(audio)} bytes")
 
-        result = await engine.process_audio(audio, sample_rate=cfg.sample_rate)
+            result = await engine.process_audio(audio, sample_rate=cfg.sample_rate)
 
-        separator = "[dim]─────────────────────────────────────[/dim]"
-        console.print(f"  {separator}")
-        console.print(f"  [cyan]You:[/cyan] {result.text!r}")
-        console.print()
+            separator = "[dim]─────────────────────────────────────[/dim]"
+            console.print(f"  {separator}")
+            console.print(f"  [cyan]You:[/cyan] {result.text!r}")
+            console.print()
 
-        # Pipeline stage visualization
-        total = result.duration_ms or 1
-        stages: list[tuple[str, int, str]] = []
-        if result.stt_ms:
-            stages.append(("STT", result.stt_ms, "transcribed"))
-        if result.intent_ms:
-            label = f"{result.intent} ({result.confidence:.0%})" if result.intent else "classified"
-            stages.append(("Intent", result.intent_ms, label))
-        if result.agent_ms:
-            detail = result.response[:30] if result.response else "done"
-            stages.append(("Agent", result.agent_ms, detail))
+            # Pipeline stage visualization
+            total = result.duration_ms or 1
+            stages: list[tuple[str, int, str]] = []
+            if result.stt_ms:
+                stages.append(("STT", result.stt_ms, "transcribed"))
+            if result.intent_ms:
+                label = (
+                    f"{result.intent} ({result.confidence:.0%})" if result.intent else "classified"
+                )
+                stages.append(("Intent", result.intent_ms, label))
+            if result.agent_ms:
+                detail = result.response[:30] if result.response else "done"
+                stages.append(("Agent", result.agent_ms, detail))
 
-        for name, ms, detail in stages:
-            filled = round((ms / total) * 10)
-            filled = max(1, min(10, filled))
-            bar = "█" * filled + "░" * (10 - filled)
-            console.print(
-                f"  [cyan]●[/cyan] {name:<6} [bold]{ms:>4}ms[/bold]  "
-                f"[cyan]{bar}[/cyan]  [dim]{detail}[/dim]"
-            )
+            for name, ms, detail in stages:
+                filled = round((ms / total) * 10)
+                filled = max(1, min(10, filled))
+                bar = "█" * filled + "░" * (10 - filled)
+                console.print(
+                    f"  [cyan]●[/cyan] {name:<6} [bold]{ms:>4}ms[/bold]  "
+                    f"[cyan]{bar}[/cyan]  [dim]{detail}[/dim]"
+                )
 
-        console.print(f"  {separator}")
+            console.print(f"  {separator}")
 
-        if result.error:
-            console.print(f"  [red]✗ {result.error}[/red]")
-        elif result.response:
-            console.print(
-                f"  [green]✓[/green] {result.response}  [dim]{result.duration_ms}ms[/dim]"
-            )
+            if result.error:
+                _print_actionable_error(result.error)
+            elif result.response:
+                console.print(
+                    f"  [green]✓[/green] {result.response}  [dim]{result.duration_ms}ms[/dim]"
+                )
 
-        console.print(f"  {separator}")
+            console.print(f"  {separator}")
 
-        await engine.shutdown()
-        console.print("\n  [green]All systems working![/green]\n")
+            if not result.error:
+                console.print("\n  [green]All systems working![/green]\n")
+        finally:
+            await engine.shutdown()
 
     asyncio.run(_test())
 
@@ -295,7 +316,9 @@ def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
 
     server_app = create_app()
     console.print(f"\n[bold]Nudge Server[/bold] — http://{host}:{port}")
-    console.print("  /api/process, /api/transcribe, /api/tasks, /api/alarms, /api/history\n")
+    console.print(
+        "  /health, /api/process, /api/transcribe, /api/tasks, /api/alarms, /api/history\n"
+    )
     uvicorn.run(server_app, host=host, port=port, log_level="warning")
 
 
@@ -313,11 +336,12 @@ def history(limit: int = 10) -> None:
 
     console.print(f"\n[bold]Recent Sessions[/bold] ({len(entries)})\n")
     for e in entries:
-        r = e.get("result") or {}
-        text = r.get("text", "") or e.get("text", "")
-        response = r.get("response", "")
-        intent = r.get("intent", "")
-        ts = r.get("timestamp", "")[:19]
+        raw_result = e.get("result")
+        result = raw_result if isinstance(raw_result, dict) else {}
+        text = str(result.get("text") or e.get("text") or "")
+        response = str(result.get("response") or "")
+        intent = str(result.get("intent") or "")
+        ts = str(result.get("timestamp") or "")[:19]
         if text:
             console.print(f"  [dim]{ts}[/dim] [cyan]{text}[/cyan]")
             if intent:
