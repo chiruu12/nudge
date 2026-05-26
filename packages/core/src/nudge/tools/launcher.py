@@ -25,12 +25,6 @@ APPS = {
         "name": "Cursor",
         "mac_bundle": "Cursor",
     },
-    "vscode": {
-        "cmd": "code",
-        "args_template": [],
-        "name": "VS Code",
-        "mac_bundle": "Visual Studio Code",
-    },
 }
 
 
@@ -45,9 +39,6 @@ def launch_app(app_name: str, prompt: str = "") -> str:
     aliases = {
         "claude code": "claude",
         "claude-code": "claude",
-        "vs code": "vscode",
-        "visual studio code": "vscode",
-        "vs": "vscode",
     }
     key = aliases.get(key, key)
 

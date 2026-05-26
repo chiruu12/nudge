@@ -89,26 +89,48 @@ def default(ctx: typer.Context) -> None:
             from nudge.core.session import ProcessingResult
 
             if isinstance(result, ProcessingResult):
+                separator = "[dim]─────────────────────────────────────[/dim]"
+                console.print(f"  {separator}")
+
                 if result.text:
                     console.print(f"  [cyan]You:[/cyan] {result.text}")
-                if result.intent:
-                    console.print(f"  [dim]Intent: {result.intent} ({result.confidence:.0%})[/dim]")
-                if result.response:
-                    console.print(f"  [green]Nudge:[/green] {result.response}")
-                if result.error:
-                    console.print(f"  [red]Error:[/red] {result.error}")
-                # Pipeline timing
-                parts = []
+                    console.print()
+
+                # Pipeline stage visualization
+                total = result.duration_ms or 1  # avoid division by zero
+                stages: list[tuple[str, int, str]] = []
                 if result.stt_ms:
-                    parts.append(f"STT {result.stt_ms}ms")
+                    stages.append(("STT", result.stt_ms, "transcribed"))
                 if result.intent_ms:
-                    parts.append(f"Intent {result.intent_ms}ms")
-                if result.agent_ms:
-                    parts.append(f"Agent {result.agent_ms}ms")
-                if parts:
-                    console.print(
-                        f"  [dim]{' → '.join(parts)} | Total {result.duration_ms}ms[/dim]"
+                    label = (
+                        f"{result.intent} ({result.confidence:.0%})"
+                        if result.intent
+                        else "classified"
                     )
+                    stages.append(("Intent", result.intent_ms, label))
+                if result.agent_ms:
+                    detail = result.response[:30] if result.response else "done"
+                    stages.append(("Agent", result.agent_ms, detail))
+
+                for name, ms, detail in stages:
+                    filled = round((ms / total) * 10)
+                    filled = max(1, min(10, filled))
+                    bar = "█" * filled + "░" * (10 - filled)
+                    console.print(
+                        f"  [cyan]●[/cyan] {name:<6} [bold]{ms:>4}ms[/bold]  "
+                        f"[cyan]{bar}[/cyan]  [dim]{detail}[/dim]"
+                    )
+
+                console.print(f"  {separator}")
+
+                if result.error:
+                    console.print(f"  [red]✗ {result.error}[/red]")
+                elif result.response:
+                    console.print(
+                        f"  [green]✓[/green] {result.response}  [dim]{result.duration_ms}ms[/dim]"
+                    )
+
+                console.print(f"  {separator}")
 
     transport = HotkeyTransport(engine, hotkey=config.hotkey, on_result=CLIHandler())
 
@@ -197,12 +219,42 @@ def test() -> None:
 
         result = await engine.process_audio(audio, sample_rate=cfg.sample_rate)
 
-        console.print(f"  [cyan]Text:[/cyan] {result.text!r}")
-        if result.intent:
-            console.print(f"  [cyan]Intent:[/cyan] {result.intent} ({result.confidence:.0%})")
-        if result.response:
-            console.print(f"  [cyan]Response:[/cyan] {result.response}")
-        console.print(f"  [dim]Duration: {result.duration_ms}ms[/dim]")
+        separator = "[dim]─────────────────────────────────────[/dim]"
+        console.print(f"  {separator}")
+        console.print(f"  [cyan]You:[/cyan] {result.text!r}")
+        console.print()
+
+        # Pipeline stage visualization
+        total = result.duration_ms or 1
+        stages: list[tuple[str, int, str]] = []
+        if result.stt_ms:
+            stages.append(("STT", result.stt_ms, "transcribed"))
+        if result.intent_ms:
+            label = f"{result.intent} ({result.confidence:.0%})" if result.intent else "classified"
+            stages.append(("Intent", result.intent_ms, label))
+        if result.agent_ms:
+            detail = result.response[:30] if result.response else "done"
+            stages.append(("Agent", result.agent_ms, detail))
+
+        for name, ms, detail in stages:
+            filled = round((ms / total) * 10)
+            filled = max(1, min(10, filled))
+            bar = "█" * filled + "░" * (10 - filled)
+            console.print(
+                f"  [cyan]●[/cyan] {name:<6} [bold]{ms:>4}ms[/bold]  "
+                f"[cyan]{bar}[/cyan]  [dim]{detail}[/dim]"
+            )
+
+        console.print(f"  {separator}")
+
+        if result.error:
+            console.print(f"  [red]✗ {result.error}[/red]")
+        elif result.response:
+            console.print(
+                f"  [green]✓[/green] {result.response}  [dim]{result.duration_ms}ms[/dim]"
+            )
+
+        console.print(f"  {separator}")
 
         await engine.shutdown()
         console.print("\n  [green]All systems working![/green]\n")
