@@ -61,7 +61,8 @@ def create_app() -> FastAPI:
 
     @server.get("/health")
     async def health():
-        return {"status": "ok", "version": "0.1.0"}
+        from importlib.metadata import version
+        return {"status": "ok", "version": version("nudge-ai")}
 
     @server.post("/api/process")
     async def process_text(body: TextInput):

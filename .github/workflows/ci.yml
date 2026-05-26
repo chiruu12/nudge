@@ -17,6 +17,8 @@ jobs:
         working-directory: packages/core
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
       - uses: astral-sh/setup-uv@v4
       - name: Set up Python ${{ matrix.python-version }}
         run: uv venv --python ${{ matrix.python-version }}
