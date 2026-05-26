@@ -199,9 +199,12 @@ class NudgeEngine:
             )
             t_intent = time.time()
 
-            # Handle launch intent directly — no agent needed
-            if intent.intent == "launch":
-                response = self._handle_launch(text)
+            # Handle deterministic intents directly — no agent needed
+            if intent.intent in ("launch", "link"):
+                if intent.intent == "launch":
+                    response = self._handle_launch(text)
+                else:
+                    response = self._handle_link(text)
                 result = ProcessingResult(
                     text=text,
                     intent=intent.intent,
@@ -297,6 +300,12 @@ class NudgeEngine:
                 break
 
         return launch_app(command, prompt)
+
+    def _handle_link(self, text: str) -> str:
+        """Route named-link commands deterministically."""
+        from nudge.tools.named_links import handle_link_command
+
+        return handle_link_command(text, data_dir=self._config.data_dir)
 
     async def transcribe(self, audio: bytes, sample_rate: int = 16000) -> str:
         """Transcribe audio without processing. Useful for preview."""

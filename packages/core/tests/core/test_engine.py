@@ -141,5 +141,23 @@ class TestNudgeEngine:
         launch_app.assert_called_once_with("Codex", "Fix AuthToken in README.md")
 
     @pytest.mark.asyncio
+    async def test_link_intent_routes_to_handler(self, engine: NudgeEngine) -> None:
+        with (
+            patch.object(engine._router, "classify", new_callable=AsyncMock) as mock_c,
+            patch("nudge.tools.named_links.handle_link_command", return_value="Saved X") as mock_h,
+        ):
+            from hive.routing.router import IntentResult
+
+            mock_c.return_value = IntentResult(
+                intent="link", confidence=0.9, raw_text="save my github"
+            )
+            result = await engine.process_text("save my github as https://github.com")
+
+        assert result.ok
+        assert result.intent == "link"
+        assert "Saved X" in result.response
+        mock_h.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_shutdown(self, engine: NudgeEngine) -> None:
         await engine.shutdown()

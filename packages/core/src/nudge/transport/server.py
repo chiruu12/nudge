@@ -90,6 +90,10 @@ def create_app() -> FastAPI:
     async def list_alarms():
         return await server.state.engine.get_alarms()
 
+    @server.get("/api/notes")
+    async def list_notes(limit: int = 20):
+        return server.state.engine.get_notes(limit=max(1, min(limit, 100)))
+
     @server.get("/api/history")
     async def get_history():
         sessions = server.state.engine.get_recent_sessions(limit=50)

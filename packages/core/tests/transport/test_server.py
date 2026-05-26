@@ -19,6 +19,7 @@ def mock_engine():
     engine.transcribe = AsyncMock()
     engine.get_tasks = AsyncMock(return_value=[])
     engine.get_alarms = AsyncMock(return_value=[])
+    engine.get_notes = MagicMock(return_value=[])
     engine.get_recent_sessions = MagicMock(return_value=[])
     engine.shutdown = AsyncMock()
     engine.checker = MagicMock()
@@ -143,6 +144,18 @@ class TestListEndpoints:
         data = resp.json()
         assert len(data) == 1
         assert data[0]["label"] == "standup"
+
+    def test_list_notes(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.get_notes.return_value = [
+            {"content": "API needs OAuth2", "timestamp": None, "file": "note1.md"},
+        ]
+
+        resp = client.get("/api/notes")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["content"] == "API needs OAuth2"
 
     def test_history_empty(self, client: TestClient, mock_engine: MagicMock) -> None:
         mock_engine.get_recent_sessions.return_value = []

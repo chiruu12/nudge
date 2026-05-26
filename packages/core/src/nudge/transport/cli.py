@@ -85,6 +85,44 @@ def edit():
 
 app.add_typer(soul_app, name="soul")
 
+links_app = typer.Typer(help="Manage named links — save, open, copy URLs by name.")
+
+
+def _links_path() -> Path:
+    from nudge.core.config import NudgeConfig
+
+    return Path(NudgeConfig.load().data_dir) / "links.json"
+
+
+@links_app.command()
+def add(name: str, url: str) -> None:
+    """Save a named link. Example: nudge links add LinkedIn https://linkedin.com/in/me"""
+    from nudge.tools.named_links import save_link
+
+    result = save_link(name, url, _links_path())
+    console.print(f"\n  {result}\n")
+
+
+@links_app.command("list")
+def list_cmd() -> None:
+    """Show all saved links."""
+    from nudge.tools.named_links import list_links
+
+    result = list_links(_links_path())
+    console.print(f"\n{result}\n")
+
+
+@links_app.command()
+def remove(name: str) -> None:
+    """Remove a named link."""
+    from nudge.tools.named_links import remove_link
+
+    result = remove_link(name, _links_path())
+    console.print(f"\n  {result}\n")
+
+
+app.add_typer(links_app, name="links")
+
 
 @app.callback(invoke_without_command=True)
 def default(ctx: typer.Context) -> None:
