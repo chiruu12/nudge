@@ -41,9 +41,14 @@ class NudgeConfig(BaseModel):
         """Load from YAML file, falling back to defaults."""
         p = path or CONFIG_FILE
         if p.exists():
-            with open(p) as f:
-                data = yaml.safe_load(f) or {}
-            return cls(**data)
+            try:
+                with open(p) as f:
+                    data = yaml.safe_load(f) or {}
+                return cls(**data)
+            except (yaml.YAMLError, Exception) as e:
+                import logging
+
+                logging.getLogger(__name__).warning("Config parse error, using defaults: %s", e)
         return cls()
 
     def save(self, path: Path | None = None) -> Path:

@@ -130,6 +130,10 @@ class TestNudgeEngine:
     def test_get_recent_sessions(self, engine: NudgeEngine) -> None:
         assert engine.get_recent_sessions() == []
 
+    def test_handle_launch_empty(self, engine: NudgeEngine) -> None:
+        result = engine._handle_launch("open ")
+        assert "Which app" in result
+
     @pytest.mark.asyncio
     async def test_shutdown(self, engine: NudgeEngine) -> None:
         await engine.shutdown()

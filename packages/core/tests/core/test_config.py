@@ -61,3 +61,9 @@ class TestNudgeConfig:
     def test_custom_intents(self) -> None:
         cfg = NudgeConfig(intents={"greet": "user says hello"})
         assert cfg.intents == {"greet": "user says hello"}
+
+    def test_load_malformed_yaml(self, tmp_path: Path) -> None:
+        bad = tmp_path / "bad.yaml"
+        bad.write_text(": invalid: yaml: [[[")
+        cfg = NudgeConfig.load(bad)
+        assert cfg.stt_provider == "groq"  # falls back to defaults

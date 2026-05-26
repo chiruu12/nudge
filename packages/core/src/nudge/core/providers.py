@@ -40,9 +40,17 @@ def _get_provider(name: str, tier: str) -> BaseProvider:
         raise ValueError(f"Unknown LLM provider: {name!r}. Available: {list(_PROVIDERS)}")
 
     module_path, class_name = _PROVIDERS[name].rsplit(":", 1)
-    import importlib
 
-    module = importlib.import_module(module_path)
+    try:
+        import importlib
+
+        module = importlib.import_module(module_path)
+    except ImportError:
+        raise ValueError(
+            f"Provider {name!r} requires the hive-agent package. "
+            f"Install it: pip install 'hive-agent>=0.4.1'"
+        ) from None
+
     cls = getattr(module, class_name)
 
     if not hasattr(cls, tier):

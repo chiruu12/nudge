@@ -55,6 +55,14 @@ class TestLaunchApp:
             mock_popen.assert_called_once()
             assert "Opened" in result or "Cursor" in result
 
+    def test_launch_empty_string(self) -> None:
+        result = launch_app("")
+        assert "Unknown app" in result
+
+    def test_launch_whitespace(self) -> None:
+        result = launch_app("   ")
+        assert "Unknown app" in result
+
     def test_list_available(self) -> None:
         with patch("nudge.tools.launcher.shutil.which") as mock_which:
             mock_which.side_effect = lambda cmd: "/usr/bin/" + cmd if cmd == "codex" else None

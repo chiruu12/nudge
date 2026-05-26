@@ -70,7 +70,10 @@ class NudgeEngine:
         soul_path = Path.home() / ".nudge" / "soul.md"
         persona = "You are Nudge, a helpful voice assistant. Be concise — 1-2 sentences."
         if soul_path.exists():
-            persona = soul_path.read_text().strip()
+            persona = (
+                soul_path.read_text(encoding="utf-8", errors="replace").strip()
+                or "You are Nudge, a helpful voice assistant. Be concise — 1-2 sentences."
+            )
 
         self._agent = Agent(
             name="nudge",
@@ -219,6 +222,14 @@ class NudgeEngine:
             if clean.startswith(prefix):
                 clean = clean[len(prefix) :]
                 break
+
+        if not clean.strip():
+            from nudge.tools.launcher import list_available_apps
+
+            available = list_available_apps()
+            if available:
+                return f"Which app? Available: {', '.join(available)}"
+            return "Which app would you like to open?"
 
         # Split on "and", "with", "to" to separate app from prompt
         prompt = ""

@@ -57,7 +57,14 @@ def edit():
     if not soul_path.exists():
         soul_path.write_text(_DEFAULT_SOUL)
     editor = os.environ.get("EDITOR", "nano")
-    subprocess.run([editor, str(soul_path)])
+    try:
+        subprocess.run([editor, str(soul_path)], check=True)
+    except FileNotFoundError:
+        console.print(
+            f"\n  [red]Editor '{editor}' not found.[/red] Set your EDITOR env variable.\n"
+        )
+    except subprocess.CalledProcessError:
+        console.print("\n  [yellow]Editor exited with an error.[/yellow]\n")
 
 
 app.add_typer(soul_app, name="soul")
