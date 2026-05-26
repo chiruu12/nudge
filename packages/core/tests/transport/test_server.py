@@ -40,6 +40,29 @@ def client(mock_engine):
             yield c
 
 
+class TestHealth:
+    def test_health(self, client: TestClient) -> None:
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert "version" in data
+
+
+class TestCors:
+    def test_nextjs_dev_origin_can_call_api(self, client: TestClient) -> None:
+        resp = client.options(
+            "/api/process",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
 class TestProcessText:
     def test_process_text(self, client: TestClient, mock_engine: MagicMock) -> None:
         result = ProcessingResult(

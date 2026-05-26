@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path.home() / ".nudge"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
@@ -24,6 +27,9 @@ class NudgeConfig(BaseModel):
     log_dir: str = str(LOG_DIR)
     hosted_stt: bool = False
     api_base_url: str = "https://api.nudge.dev"
+    stt_timeout_s: float = 30.0
+    intent_timeout_s: float = 10.0
+    agent_timeout_s: float = 30.0
     intents: dict[str, str] = Field(
         default_factory=lambda: {
             "task": "user wants to create or manage a todo item",
@@ -38,24 +44,23 @@ class NudgeConfig(BaseModel):
 
     @classmethod
     def load(cls, path: Path | None = None) -> NudgeConfig:
-        """Load from YAML file, falling back to defaults."""
+        """Load from YAML file, using defaults only when no file exists."""
         p = path or CONFIG_FILE
         if p.exists():
             try:
-                with open(p) as f:
+                with open(p, encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
                 return cls(**data)
-            except (yaml.YAMLError, Exception) as e:
-                import logging
-
-                logging.getLogger(__name__).warning("Config parse error, using defaults: %s", e)
+            except (OSError, UnicodeError, yaml.YAMLError, TypeError, ValidationError) as e:
+                logger.error("Invalid config file %s: %s", p, e)
+                raise ValueError(f"Invalid Nudge configuration in {p}: {e}") from e
         return cls()
 
     def save(self, path: Path | None = None) -> Path:
         """Save to YAML file."""
         p = path or CONFIG_FILE
         p.parent.mkdir(parents=True, exist_ok=True)
-        with open(p, "w") as f:
+        with open(p, "w", encoding="utf-8") as f:
             yaml.dump(self.model_dump(), f, default_flow_style=False, sort_keys=False)
         return p
 

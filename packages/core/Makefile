@@ -1,4 +1,4 @@
-.PHONY: dev test test-quick lint format run serve
+.PHONY: dev test test-quick lint format typecheck ci run serve
 
 dev:
 	uv pip install -e ".[dev,server]"
@@ -16,6 +16,11 @@ lint:
 format:
 	ruff format src/ tests/
 	ruff check --fix src/ tests/
+
+typecheck:
+	mypy src/nudge/
+
+ci: lint typecheck test
 
 run:
 	nudge

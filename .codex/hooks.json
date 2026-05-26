@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT\" | grep -qE '(git\\s+push\\s+--force|git\\s+reset\\s+--hard|git\\s+clean\\s+-fd|git\\s+checkout\\s+--\\s+\\.|rm\\s+-rf\\s+/)'; then echo 'BLOCKED: Destructive git operation detected. Please confirm with the user first.' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
@@ -22,6 +23,10 @@ class ProcessingResult(BaseModel):
     stt_ms: int = 0
     intent_ms: int = 0
     agent_ms: int = 0
+    error_type: str = ""
+    error_source: str = ""
+    provider_name: str = ""
+    session_id: str = ""
     timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     @property
@@ -36,7 +41,7 @@ class VoiceSession:
     """
 
     def __init__(self, session_id: str = "") -> None:
-        self.session_id = session_id or datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        self.session_id = session_id or uuid.uuid4().hex[:12]
         self._audio: bytes = b""
         self._text: str = ""
         self._result: ProcessingResult | None = None
