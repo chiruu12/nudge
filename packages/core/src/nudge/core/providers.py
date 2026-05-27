@@ -42,8 +42,8 @@ class OpenAICompat(HiveOpenAI):
         response = await self._retry_with_backoff(self._client.chat.completions.create, **kwargs)
         duration_ms = int((time.time() - t0) * 1000)
 
-        input_tokens = response.usage.prompt_tokens or 0 if response.usage else 0
-        output_tokens = response.usage.completion_tokens or 0 if response.usage else 0
+        input_tokens = (response.usage.prompt_tokens or 0) if response.usage else 0
+        output_tokens = (response.usage.completion_tokens or 0) if response.usage else 0
         cost = estimate_cost(self._model, input_tokens, output_tokens)
 
         return GenerateResult(

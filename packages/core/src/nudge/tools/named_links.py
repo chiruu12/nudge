@@ -22,9 +22,9 @@ def _normalize(name: str) -> str:
 def _load(path: Path) -> dict[str, dict[str, str]]:
     if path.exists():
         try:
-            data: dict[str, dict[str, str]] = json.loads(path.read_text())
+            data: dict[str, dict[str, str]] = json.loads(path.read_text(encoding="utf-8"))
             return data
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, UnicodeError):
             logger.warning("Corrupt links file, backing up before reset")
             try:
                 path.rename(path.with_suffix(".json.bak"))
@@ -36,7 +36,7 @@ def _load(path: Path) -> dict[str, dict[str, str]]:
 def _save(links: dict[str, dict[str, str]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(links, indent=2))
+    tmp.write_text(json.dumps(links, indent=2), encoding="utf-8")
     tmp.replace(path)
 
 

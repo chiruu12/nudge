@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from importlib.metadata import version as pkg_version
 
@@ -13,6 +14,8 @@ from pydantic import BaseModel, field_validator
 from nudge.core.config import NudgeConfig
 from nudge.core.engine import NudgeEngine
 from nudge.core.logging import setup_logging
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 LOCAL_WEB_ORIGINS = [
@@ -82,6 +85,7 @@ def create_app() -> FastAPI:
         try:
             text = await server.state.engine.transcribe(audio_bytes, sample_rate=sample_rate)
         except Exception:
+            logger.exception("Transcription failed")
             raise HTTPException(status_code=500, detail="Transcription failed. Please try again.")
         return {"text": text}
 

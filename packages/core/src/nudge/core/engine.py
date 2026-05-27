@@ -31,7 +31,7 @@ from nudge.core.session import ProcessingResult, VoiceSession
 
 logger = logging.getLogger(__name__)
 
-_PATH_RE = re.compile(r"/(?:Users|home|tmp|var|etc)/\S+")
+_PATH_RE = re.compile(r"/(?:Users|home|root|tmp|var|etc)/\S+")
 
 
 def _sanitize_error(msg: str) -> str:

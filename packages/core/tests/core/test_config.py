@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from nudge.core.config import NudgeConfig
 
@@ -69,15 +70,15 @@ class TestNudgeConfig:
             NudgeConfig.load(bad)
 
     def test_negative_timeout_rejected(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError, match="stt_timeout_s"):
             NudgeConfig(stt_timeout_s=-1)
 
     def test_min_confidence_bounds(self) -> None:
         cfg = NudgeConfig(min_confidence=0.0)
         assert cfg.min_confidence == 0.0
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError, match="min_confidence"):
             NudgeConfig(min_confidence=-0.1)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError, match="min_confidence"):
             NudgeConfig(min_confidence=1.5)
 
     def test_max_text_length_default(self) -> None:
