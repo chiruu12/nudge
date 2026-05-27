@@ -27,9 +27,11 @@ class NudgeConfig(BaseModel):
     log_dir: str = str(LOG_DIR)
     hosted_stt: bool = False
     api_base_url: str = "https://api.nudge.dev"
-    stt_timeout_s: float = 30.0
-    intent_timeout_s: float = 10.0
-    agent_timeout_s: float = 30.0
+    stt_timeout_s: float = Field(default=30.0, gt=0)
+    intent_timeout_s: float = Field(default=10.0, gt=0)
+    agent_timeout_s: float = Field(default=30.0, gt=0)
+    min_confidence: float = Field(default=0.3, ge=0.0, le=1.0)
+    max_text_length: int = Field(default=10_000, gt=0)
     intents: dict[str, str] = Field(
         default_factory=lambda: {
             "task": "user wants to create or manage a todo item",

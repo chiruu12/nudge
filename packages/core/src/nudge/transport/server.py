@@ -66,6 +66,9 @@ def create_app() -> FastAPI:
 
     @server.post("/api/process")
     async def process_text(body: TextInput):
+        max_len = server.state.engine.config.max_text_length
+        if len(body.text) > max_len:
+            raise HTTPException(status_code=422, detail=f"Text too long (max {max_len} chars)")
         result = await server.state.engine.process_text(body.text)
         return result.model_dump()
 
@@ -78,8 +81,8 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=422, detail="Empty audio file")
         try:
             text = await server.state.engine.transcribe(audio_bytes, sample_rate=sample_rate)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Transcription failed: {e}")
+        except Exception:
+            raise HTTPException(status_code=500, detail="Transcription failed. Please try again.")
         return {"text": text}
 
     @server.get("/api/tasks")

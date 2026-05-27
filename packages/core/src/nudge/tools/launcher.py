@@ -73,7 +73,7 @@ def launch_app(app_name: str, prompt: str = "") -> str:
     # Build command
     args = [cmd]
     if prompt and app["args_template"]:
-        args.extend([a.format(prompt=prompt) for a in app["args_template"]])
+        args.extend([a.replace("{prompt}", prompt) for a in app["args_template"]])
 
     try:
         subprocess.Popen(args)

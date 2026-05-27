@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, cast
@@ -28,6 +30,13 @@ from nudge.core.providers import create_llm, create_router_llm, create_stt
 from nudge.core.session import ProcessingResult, VoiceSession
 
 logger = logging.getLogger(__name__)
+
+_PATH_RE = re.compile(r"/(?:Users|home|tmp|var|etc)/\S+")
+
+
+def _sanitize_error(msg: str) -> str:
+    """Strip filesystem paths from error messages before returning to users."""
+    return _PATH_RE.sub("<path>", msg)
 
 
 class NudgeEngine:
@@ -53,6 +62,7 @@ class NudgeEngine:
         log_dir.mkdir(parents=True, exist_ok=True)
 
         self._log_path = log_dir / "sessions.jsonl"
+        self._log_lock = threading.Lock()
         db_path = data_dir / "nudge.db"
 
         self._stt: STTProvider = create_stt(self._config)
@@ -117,6 +127,13 @@ class NudgeEngine:
 
     async def process_text(self, text: str) -> ProcessingResult:
         """Process a text command. The primary interface for all transports."""
+        if len(text) > self._config.max_text_length:
+            return ProcessingResult(
+                text=text[: self._config.max_text_length],
+                error=f"Input too long (max {self._config.max_text_length} chars)",
+                error_type="validation",
+                error_source="engine",
+            )
         session = VoiceSession()
         session.set_text(text)
         return await self._run_pipeline(session, text)
@@ -164,10 +181,10 @@ class NudgeEngine:
             self._track_session(session)
             return result
         except Exception as e:
-            logger.error("Audio processing failed [%s]: %s", session.session_id, e)
+            logger.exception("Audio processing failed [%s]", session.session_id)
             result = ProcessingResult(
                 text="",
-                error=str(e),
+                error=_sanitize_error(str(e)),
                 error_type="provider",
                 error_source="stt",
                 provider_name=self._config.stt_provider,
@@ -198,6 +215,23 @@ class NudgeEngine:
                 timeout=self._config.intent_timeout_s,
             )
             t_intent = time.time()
+
+            # Reject low-confidence classifications
+            if intent.confidence < self._config.min_confidence:
+                result = ProcessingResult(
+                    text=text,
+                    intent=intent.intent,
+                    confidence=intent.confidence,
+                    response="I'm not sure what you meant. Could you rephrase that?",
+                    stt_ms=int((t_stt - t0) * 1000) if from_audio else 0,
+                    intent_ms=int((t_intent - t_intent_start) * 1000),
+                    duration_ms=int((time.time() - t0) * 1000),
+                    provider_name=self._config.llm_provider,
+                    session_id=session.session_id,
+                )
+                session.set_result(result)
+                self._track_session(session)
+                return result
 
             # Handle deterministic intents directly — no agent needed
             if intent.intent in ("launch", "link"):
@@ -251,10 +285,10 @@ class NudgeEngine:
                 duration_ms=int((time.time() - t0) * 1000),
             )
         except Exception as e:
-            logger.error("%s failed [%s]: %s", stage.title(), session.session_id, e)
+            logger.exception("%s failed [%s]", stage.title(), session.session_id)
             result = ProcessingResult(
                 text=text,
-                error=str(e),
+                error=_sanitize_error(str(e)),
                 error_type="provider",
                 error_source=stage,
                 provider_name=self._config.llm_provider,
@@ -353,7 +387,7 @@ class NudgeEngine:
 
     def _log_session(self, session: VoiceSession) -> None:
         try:
-            with open(self._log_path, "a") as f:
+            with self._log_lock, open(self._log_path, "a") as f:
                 f.write(json.dumps(session.to_log_dict()) + "\n")
         except Exception as e:
             logger.warning("Session log write failed: %s", e)

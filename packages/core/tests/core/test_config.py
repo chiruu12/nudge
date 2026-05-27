@@ -67,3 +67,19 @@ class TestNudgeConfig:
         bad.write_text(": invalid: yaml: [[[")
         with pytest.raises(ValueError, match="Invalid Nudge configuration"):
             NudgeConfig.load(bad)
+
+    def test_negative_timeout_rejected(self) -> None:
+        with pytest.raises(Exception):
+            NudgeConfig(stt_timeout_s=-1)
+
+    def test_min_confidence_bounds(self) -> None:
+        cfg = NudgeConfig(min_confidence=0.0)
+        assert cfg.min_confidence == 0.0
+        with pytest.raises(Exception):
+            NudgeConfig(min_confidence=-0.1)
+        with pytest.raises(Exception):
+            NudgeConfig(min_confidence=1.5)
+
+    def test_max_text_length_default(self) -> None:
+        cfg = NudgeConfig()
+        assert cfg.max_text_length == 10_000

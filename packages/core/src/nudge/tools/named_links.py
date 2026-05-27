@@ -35,7 +35,9 @@ def _load(path: Path) -> dict[str, dict[str, str]]:
 
 def _save(links: dict[str, dict[str, str]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(links, indent=2))
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(links, indent=2))
+    tmp.replace(path)
 
 
 def _validate_url(url: str) -> bool:

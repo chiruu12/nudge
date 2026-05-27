@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from nudge.core.config import NudgeConfig
-from nudge.core.engine import NudgeEngine
+from nudge.core.engine import NudgeEngine, _sanitize_error
 
 
 @pytest.fixture
@@ -159,5 +159,42 @@ class TestNudgeEngine:
         mock_h.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_low_confidence_rejected(self, engine: NudgeEngine) -> None:
+        engine._config.min_confidence = 0.5
+        with patch.object(engine._router, "classify", new_callable=AsyncMock) as mock_c:
+            from hive.routing.router import IntentResult
+
+            mock_c.return_value = IntentResult(
+                intent="task", confidence=0.2, raw_text="mumble"
+            )
+            result = await engine.process_text("mumble something")
+
+        assert result.ok
+        assert "rephrase" in result.response.lower()
+        assert result.confidence == 0.2
+
+    @pytest.mark.asyncio
+    async def test_text_too_long_rejected(self, engine: NudgeEngine) -> None:
+        engine._config.max_text_length = 50
+        result = await engine.process_text("x" * 100)
+        assert not result.ok
+        assert "too long" in result.error.lower()
+
+    @pytest.mark.asyncio
     async def test_shutdown(self, engine: NudgeEngine) -> None:
         await engine.shutdown()
+
+
+class TestSanitizeError:
+    def test_strips_home_path(self) -> None:
+        msg = "File not found: /Users/chirag/.nudge/config.yaml"
+        assert "/Users/" not in _sanitize_error(msg)
+        assert "<path>" in _sanitize_error(msg)
+
+    def test_strips_linux_path(self) -> None:
+        msg = "Failed at /home/user/.nudge/data/nudge.db"
+        assert "/home/" not in _sanitize_error(msg)
+
+    def test_preserves_normal_errors(self) -> None:
+        msg = "Connection refused"
+        assert _sanitize_error(msg) == msg

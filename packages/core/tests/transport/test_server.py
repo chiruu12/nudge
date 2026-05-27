@@ -25,6 +25,7 @@ def mock_engine():
     engine.checker = MagicMock()
     engine.checker.run_forever = AsyncMock()
     engine.checker.stop = AsyncMock()
+    engine.config.max_text_length = 10_000
     return engine
 
 
@@ -91,6 +92,12 @@ class TestProcessText:
     def test_process_text_missing_field(self, client: TestClient) -> None:
         resp = client.post("/api/process", json={})
         assert resp.status_code == 422
+
+    def test_process_text_too_long(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.config.max_text_length = 100
+        resp = client.post("/api/process", json={"text": "x" * 200})
+        assert resp.status_code == 422
+        assert "too long" in resp.json()["detail"].lower()
 
 
 class TestTranscribeAudio:
