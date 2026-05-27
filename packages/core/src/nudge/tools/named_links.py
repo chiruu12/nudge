@@ -22,7 +22,8 @@ def _normalize(name: str) -> str:
 def _load(path: Path) -> dict[str, dict[str, str]]:
     if path.exists():
         try:
-            return json.loads(path.read_text())
+            data: dict[str, dict[str, str]] = json.loads(path.read_text())
+            return data
         except (json.JSONDecodeError, OSError):
             logger.warning("Corrupt links file, backing up before reset")
             try:

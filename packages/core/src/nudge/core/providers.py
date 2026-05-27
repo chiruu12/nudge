@@ -8,6 +8,56 @@ from hive.stt.base import STTProvider
 from nudge.core.config import NudgeConfig
 
 
+def _patch_openai_max_tokens() -> None:
+    """Patch Hive's OpenAI provider to use max_completion_tokens for GPT-5+ models."""
+    from hive.models.openai import OpenAI as HiveOpenAI
+
+    if getattr(HiveOpenAI, "_nudge_patched", False):
+        return
+
+    _original = HiveOpenAI.generate_with_metadata
+
+    async def _patched(self, messages, tools=None, temperature=0.0, max_tokens=4096):  # type: ignore[no-untyped-def]
+        if self._model.startswith("gpt-5"):
+            api_messages = self._messages_to_openai(messages)
+            import time
+
+            from hive.models.registry import estimate_cost
+            from hive.runtime.types import GenerateResult
+
+            t0 = time.time()
+            kwargs = {
+                "model": self._model,
+                "messages": api_messages,
+                "max_completion_tokens": max_tokens,
+                "temperature": temperature,
+            }
+            if tools:
+                kwargs["tools"] = self._tools_to_openai(tools)
+            response = await self._retry_with_backoff(
+                self._client.chat.completions.create, **kwargs
+            )
+            duration_ms = int((time.time() - t0) * 1000)
+            input_tokens = response.usage.prompt_tokens or 0 if response.usage else 0
+            output_tokens = response.usage.completion_tokens or 0 if response.usage else 0
+            cost = estimate_cost(self._model, input_tokens, output_tokens)
+            return GenerateResult(
+                message=self._response_to_message(response),
+                model=self._model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost,
+                duration_ms=duration_ms,
+            )
+        return await _original(self, messages, tools, temperature, max_tokens)
+
+    HiveOpenAI.generate_with_metadata = _patched  # type: ignore[assignment]
+    HiveOpenAI._nudge_patched = True  # type: ignore[attr-defined]
+
+
+_patch_openai_max_tokens()
+
+
 def create_stt(config: NudgeConfig) -> STTProvider:
     """Create the STT provider from config. Keys come from env."""
     from hive.stt import create_stt_provider
