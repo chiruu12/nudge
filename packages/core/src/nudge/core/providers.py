@@ -25,9 +25,7 @@ class OpenAICompat(HiveOpenAI):
         max_tokens: int = 4096,
     ) -> GenerateResult:
         if not self._model.startswith("gpt-5"):
-            return await super().generate_with_metadata(
-                messages, tools, temperature, max_tokens
-            )
+            return await super().generate_with_metadata(messages, tools, temperature, max_tokens)
 
         api_messages = self._messages_to_openai(messages)
         t0 = time.time()
@@ -41,9 +39,7 @@ class OpenAICompat(HiveOpenAI):
         if tools:
             kwargs["tools"] = self._tools_to_openai(tools)
 
-        response = await self._retry_with_backoff(
-            self._client.chat.completions.create, **kwargs
-        )
+        response = await self._retry_with_backoff(self._client.chat.completions.create, **kwargs)
         duration_ms = int((time.time() - t0) * 1000)
 
         input_tokens = response.usage.prompt_tokens or 0 if response.usage else 0

@@ -164,9 +164,7 @@ class TestNudgeEngine:
         with patch.object(engine._router, "classify", new_callable=AsyncMock) as mock_c:
             from hive.routing.router import IntentResult
 
-            mock_c.return_value = IntentResult(
-                intent="task", confidence=0.2, raw_text="mumble"
-            )
+            mock_c.return_value = IntentResult(intent="task", confidence=0.2, raw_text="mumble")
             result = await engine.process_text("mumble something")
 
         assert result.ok
