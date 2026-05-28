@@ -53,6 +53,10 @@ class HotkeyManager {
         for (_, ref) in hotKeys { UnregisterEventHotKey(ref) }
         hotKeys.removeAll()
         handlers.removeAll()
+        if let ref = handlerRef {
+            RemoveEventHandler(ref)
+            handlerRef = nil
+        }
     }
 
     deinit {

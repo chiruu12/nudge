@@ -185,7 +185,12 @@ actor APIClient {
     }
 
     func doneTasks() async -> [NudgeTask] {
-        guard let url = URL(string: "http://127.0.0.1:8000/api/tasks?status=done"),
+        var components = URLComponents(
+            url: base.appendingPathComponent("api/tasks"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "status", value: "done")]
+        guard let url = components.url,
               let (data, _) = try? await session.data(from: url)
         else { return [] }
         do {

@@ -191,8 +191,13 @@ def create_app() -> FastAPI:
     async def delete_note(note_id: str):
         try:
             await server.state.engine.delete_note(note_id)
-        except Exception:
+        except KeyError:
             raise HTTPException(status_code=404, detail="Note not found")
+        except Exception:
+            logger.exception("delete_note failed")
+            raise HTTPException(
+                status_code=500, detail="Delete failed. Please try again."
+            )
         return {"message": "Deleted."}
 
     # ── History ──────────────────────────────────────────────

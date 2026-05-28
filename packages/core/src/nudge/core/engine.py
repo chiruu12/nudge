@@ -375,14 +375,14 @@ class NudgeEngine:
                 ]
                 parts.append(f"Active tasks ({len(tasks)}):\n" + "\n".join(lines))
         except Exception:
-            pass
+            logger.debug("_build_context: failed to fetch tasks", exc_info=True)
         try:
             alarms = await self._alarm_tk.query_all_pending_alarms()
             if alarms:
                 lines = [f"- {a['description']} at {a.get('fire_at', '?')}" for a in alarms[:10]]
                 parts.append(f"Pending alarms ({len(alarms)}):\n" + "\n".join(lines))
         except Exception:
-            pass
+            logger.debug("_build_context: failed to fetch alarms", exc_info=True)
         return "\n\n".join(parts)
 
     # ── Data access for host apps ────────────────────────────────

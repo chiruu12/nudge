@@ -54,7 +54,10 @@ struct APINote: Codable, Identifiable, Equatable {
         case file
     }
 
-    var id: String { file ?? content }
+    var id: String {
+        file ?? (timestamp.map { "\(content.hashValue)-\($0)" }
+            ?? "\(content.hashValue)-\(content.count)")
+    }
 
     var displayText: String {
         String(content.prefix(80)).trimmingCharacters(in: .whitespacesAndNewlines)
