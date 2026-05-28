@@ -195,9 +195,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Note not found")
         except Exception:
             logger.exception("delete_note failed")
-            raise HTTPException(
-                status_code=500, detail="Delete failed. Please try again."
-            )
+            raise HTTPException(status_code=500, detail="Delete failed. Please try again.")
         return {"message": "Deleted."}
 
     # ── History ──────────────────────────────────────────────
