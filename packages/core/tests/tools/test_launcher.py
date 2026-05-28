@@ -13,32 +13,46 @@ class TestLaunchApp:
         assert "Unknown app" in result
         assert "Available" in result
 
-    def test_launch_codex_with_prompt(self) -> None:
+    def test_launch_codex_opens_app(self) -> None:
         with (
-            patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/codex"),
-            patch("nudge.tools.launcher._open_in_terminal") as mock_terminal,
+            patch("nudge.tools.launcher.os.path.exists", return_value=True),
+            patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
         ):
             result = launch_app("codex", "fix the auth bug")
-            mock_terminal.assert_called_once_with(["codex", "fix the auth bug"])
+            mock_popen.assert_called_once_with(["open", "-a", "Codex"])
+            assert "Opened" in result
+            assert "fix the auth bug" in result
+
+    def test_launch_codex_no_app_falls_back_to_cli(self) -> None:
+        with (
+            patch("nudge.tools.launcher.os.path.exists", return_value=False),
+            patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/codex"),
+            patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
+        ):
+            result = launch_app("codex", "fix the auth bug")
+            mock_popen.assert_called_once_with(["codex", "fix the auth bug"])
             assert "Launched" in result
-            assert "Codex" in result
 
     def test_launch_without_prompt(self) -> None:
         with (
-            patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/codex"),
-            patch("nudge.tools.launcher._open_in_terminal") as mock_terminal,
+            patch("nudge.tools.launcher.os.path.exists", return_value=True),
+            patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
         ):
             result = launch_app("codex")
-            mock_terminal.assert_called_once_with(["codex"])
-            assert "Launched" in result
+            mock_popen.assert_called_once_with(["open", "-a", "Codex"])
+            assert "Opened" in result
 
     def test_app_not_installed(self) -> None:
-        with patch("nudge.tools.launcher.shutil.which", return_value=None):
+        with (
+            patch("nudge.tools.launcher.os.path.exists", return_value=False),
+            patch("nudge.tools.launcher.shutil.which", return_value=None),
+        ):
             result = launch_app("codex")
             assert "not installed" in result
 
     def test_alias_resolution(self) -> None:
         with (
+            patch("nudge.tools.launcher.os.path.exists", return_value=False),
             patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/claude"),
             patch("nudge.tools.launcher._open_in_terminal"),
         ):
@@ -47,16 +61,16 @@ class TestLaunchApp:
 
     def test_mac_bundle_fallback(self) -> None:
         with (
-            patch("nudge.tools.launcher.shutil.which", return_value=None),
+            patch("nudge.tools.launcher.os.path.exists", return_value=True),
             patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
-            patch("os.path.exists", return_value=True),
         ):
             result = launch_app("cursor")
-            mock_popen.assert_called_once()
-            assert "Opened" in result or "Cursor" in result
+            mock_popen.assert_called_once_with(["open", "-a", "Cursor"])
+            assert "Opened" in result
 
-    def test_non_terminal_app_uses_popen(self) -> None:
+    def test_non_terminal_cli_app(self) -> None:
         with (
+            patch("nudge.tools.launcher.os.path.exists", return_value=False),
             patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/cursor"),
             patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
         ):

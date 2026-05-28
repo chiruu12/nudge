@@ -24,7 +24,7 @@ APPS: dict[str, AppDefinition] = {
         "cmd": "codex",
         "args_template": ["{prompt}"],
         "name": "OpenAI Codex",
-        "terminal": True,
+        "mac_bundle": "Codex",
     },
     "claude": {
         "cmd": "claude",
@@ -64,15 +64,21 @@ def launch_app(app_name: str, prompt: str = "") -> str:
 
     app = APPS[key]
     cmd = app["cmd"]
+    bundle = app.get("mac_bundle")
 
+    # Prefer macOS .app when it exists
+    if bundle and os.path.exists(f"/Applications/{bundle}.app"):
+        try:
+            subprocess.Popen(["open", "-a", bundle])
+            msg = f"Opened {app['name']}."
+            if prompt:
+                msg = f"Opened {app['name']}. Prompt: {prompt}"
+            return msg
+        except Exception as e:
+            logger.warning("Bundle launch failed for %s, trying CLI: %s", bundle, e)
+
+    # Fall back to CLI
     if not shutil.which(cmd):
-        bundle = app.get("mac_bundle")
-        if bundle:
-            try:
-                subprocess.Popen(["open", "-a", bundle])
-                return f"Opened {app['name']}."
-            except Exception as e:
-                return f"Could not open {app['name']}: {e}"
         return f"{app['name']} is not installed. Install it first."
 
     args = [cmd]
