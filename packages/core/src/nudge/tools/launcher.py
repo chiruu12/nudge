@@ -15,6 +15,7 @@ class AppDefinition(TypedDict):
     cmd: str
     args_template: list[str]
     name: str
+    terminal: NotRequired[bool]
     mac_bundle: NotRequired[str]
 
 
@@ -23,11 +24,13 @@ APPS: dict[str, AppDefinition] = {
         "cmd": "codex",
         "args_template": ["{prompt}"],
         "name": "OpenAI Codex",
+        "terminal": True,
     },
     "claude": {
         "cmd": "claude",
         "args_template": ["{prompt}"],
         "name": "Claude Code",
+        "terminal": True,
     },
     "cursor": {
         "cmd": "cursor",
@@ -38,14 +41,17 @@ APPS: dict[str, AppDefinition] = {
 }
 
 
-def launch_app(app_name: str, prompt: str = "") -> str:
-    """Launch an app, optionally with a prompt.
+def _open_in_terminal(args: list[str]) -> None:
+    """Open a command in a new macOS Terminal window."""
+    escaped = " ".join(arg.replace("'", "'\\''") for arg in args)
+    apple_script = f'tell application "Terminal" to do script "{escaped}"'
+    subprocess.Popen(["osascript", "-e", apple_script])
 
-    Returns a confirmation message.
-    """
+
+def launch_app(app_name: str, prompt: str = "") -> str:
+    """Launch an app, optionally with a prompt."""
     key = app_name.lower().strip()
 
-    # Handle aliases
     aliases = {
         "claude code": "claude",
         "claude-code": "claude",
@@ -59,9 +65,7 @@ def launch_app(app_name: str, prompt: str = "") -> str:
     app = APPS[key]
     cmd = app["cmd"]
 
-    # Check if CLI tool exists
     if not shutil.which(cmd):
-        # Try macOS open -a for GUI apps
         bundle = app.get("mac_bundle")
         if bundle:
             try:
@@ -71,14 +75,15 @@ def launch_app(app_name: str, prompt: str = "") -> str:
                 return f"Could not open {app['name']}: {e}"
         return f"{app['name']} is not installed. Install it first."
 
-    # Build command — use -- to prevent prompt from being parsed as flags
     args = [cmd]
     if prompt and app["args_template"]:
-        args.append("--")
         args.extend([a.replace("{prompt}", prompt) for a in app["args_template"]])
 
     try:
-        subprocess.Popen(args)
+        if app.get("terminal"):
+            _open_in_terminal(args)
+        else:
+            subprocess.Popen(args)
         msg = f"Launched {app['name']}."
         if prompt:
             msg = f"Launched {app['name']} with: {prompt}"
@@ -95,7 +100,6 @@ def list_available_apps() -> list[str]:
         if shutil.which(app["cmd"]):
             available.append(f"{app['name']} ({key})")
         elif app.get("mac_bundle"):
-            # Check if .app exists
             if os.path.exists(f"/Applications/{app['mac_bundle']}.app"):
                 available.append(f"{app['name']} ({key})")
     return available

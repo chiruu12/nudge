@@ -16,20 +16,20 @@ class TestLaunchApp:
     def test_launch_codex_with_prompt(self) -> None:
         with (
             patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/codex"),
-            patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
+            patch("nudge.tools.launcher._open_in_terminal") as mock_terminal,
         ):
             result = launch_app("codex", "fix the auth bug")
-            mock_popen.assert_called_once_with(["codex", "--", "fix the auth bug"])
+            mock_terminal.assert_called_once_with(["codex", "fix the auth bug"])
             assert "Launched" in result
             assert "Codex" in result
 
     def test_launch_without_prompt(self) -> None:
         with (
             patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/codex"),
-            patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
+            patch("nudge.tools.launcher._open_in_terminal") as mock_terminal,
         ):
             result = launch_app("codex")
-            mock_popen.assert_called_once_with(["codex"])
+            mock_terminal.assert_called_once_with(["codex"])
             assert "Launched" in result
 
     def test_app_not_installed(self) -> None:
@@ -40,7 +40,7 @@ class TestLaunchApp:
     def test_alias_resolution(self) -> None:
         with (
             patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/claude"),
-            patch("nudge.tools.launcher.subprocess.Popen"),
+            patch("nudge.tools.launcher._open_in_terminal"),
         ):
             result = launch_app("claude code")
             assert "Claude Code" in result
@@ -54,6 +54,15 @@ class TestLaunchApp:
             result = launch_app("cursor")
             mock_popen.assert_called_once()
             assert "Opened" in result or "Cursor" in result
+
+    def test_non_terminal_app_uses_popen(self) -> None:
+        with (
+            patch("nudge.tools.launcher.shutil.which", return_value="/usr/bin/cursor"),
+            patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
+        ):
+            result = launch_app("cursor")
+            mock_popen.assert_called_once_with(["cursor"])
+            assert "Launched" in result
 
     def test_launch_empty_string(self) -> None:
         result = launch_app("")
