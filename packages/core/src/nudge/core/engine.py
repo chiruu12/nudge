@@ -57,6 +57,9 @@ class NudgeEngine:
     """
 
     def __init__(self, config: NudgeConfig | None = None) -> None:
+        from nudge.core.config import CONFIG_DIR
+
+        load_dotenv(CONFIG_DIR / ".env")
         load_dotenv()
         self._config = config or NudgeConfig.load()
         self._sessions: list[VoiceSession] = []

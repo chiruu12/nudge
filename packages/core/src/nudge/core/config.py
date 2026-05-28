@@ -10,7 +10,18 @@ from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
-CONFIG_DIR = Path.home() / ".nudge"
+GLOBAL_CONFIG_DIR = Path.home() / ".nudge"
+
+
+def resolve_config_dir() -> Path:
+    """Use .nudge/ in cwd if it exists, otherwise ~/.nudge/."""
+    local = Path.cwd() / ".nudge"
+    if local.is_dir():
+        return local
+    return GLOBAL_CONFIG_DIR
+
+
+CONFIG_DIR = resolve_config_dir()
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 DATA_DIR = CONFIG_DIR / "data"
 LOG_DIR = CONFIG_DIR / "logs"

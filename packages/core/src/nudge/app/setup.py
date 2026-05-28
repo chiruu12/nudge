@@ -52,10 +52,13 @@ def _check_whisper() -> None:
 
 def run_setup() -> None:
     """Interactive setup wizard."""
+    from nudge.core.config import CONFIG_DIR
+
+    load_dotenv(CONFIG_DIR / ".env")
     load_dotenv()
     config = NudgeConfig.load()
 
-    console.print("\n[bold]Nudge Setup[/bold]")
+    console.print(f"\n[bold]Nudge Setup[/bold]  [dim]({CONFIG_DIR})[/dim]")
     console.print("[dim]Keys are read from your .env file — we never ask for them.[/dim]\n")
 
     # ── STT ──────────────────────────────────────────────────────
