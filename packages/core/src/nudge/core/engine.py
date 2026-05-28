@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -32,11 +34,14 @@ from nudge.core.session import ProcessingResult, VoiceSession
 logger = logging.getLogger(__name__)
 
 _PATH_RE = re.compile(r"/(?:Users|home|root|tmp|var|etc)/\S+")
+_KEY_RE = re.compile(r"\b(sk-|gsk_|key-|Bearer\s+|token[=:]\s*)\S+", re.IGNORECASE)
 
 
 def _sanitize_error(msg: str) -> str:
-    """Strip filesystem paths from error messages before returning to users."""
-    return _PATH_RE.sub("<path>", msg)
+    """Strip filesystem paths and API keys from error messages."""
+    msg = _PATH_RE.sub("<path>", msg)
+    msg = _KEY_RE.sub("<redacted>", msg)
+    return msg
 
 
 class NudgeEngine:
@@ -57,9 +62,9 @@ class NudgeEngine:
         self._sessions: list[VoiceSession] = []
 
         data_dir = Path(self._config.data_dir)
-        data_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(data_dir, mode=0o700, exist_ok=True)
         log_dir = Path(self._config.log_dir)
-        log_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(log_dir, mode=0o700, exist_ok=True)
 
         self._log_path = log_dir / "sessions.jsonl"
         self._log_lock = threading.Lock()
@@ -79,11 +84,11 @@ class NudgeEngine:
 
         # Load soul.md for persona customization
         soul_path = Path.home() / ".nudge" / "soul.md"
-        persona = "You are Nudge, a helpful voice assistant. Be concise — 1-2 sentences."
+        persona = "Nudge, a concise voice assistant that acts immediately"
         if soul_path.exists():
             persona = (
                 soul_path.read_text(encoding="utf-8", errors="replace").strip()
-                or "You are Nudge, a helpful voice assistant. Be concise — 1-2 sentences."
+                or "Nudge, a concise voice assistant that acts immediately"
             )
 
         self._agent = Agent(
@@ -92,9 +97,11 @@ class NudgeEngine:
             instructions=Instructions(
                 persona=persona,
                 instructions=[
-                    "Respond naturally as if speaking to the user.",
-                    "Use tools when the user asks to create tasks, set alarms, save notes, etc.",
-                    "When copying to clipboard, confirm what was copied.",
+                    "Act immediately on every request. Use tools right away.",
+                    "Never ask for confirmation, clarification, or follow-up questions.",
+                    "If details are missing, use defaults (priority: medium, due: today).",
+                    "For general questions, answer briefly from your knowledge.",
+                    "Respond in 1 sentence confirming what you did.",
                 ],
             ),
             toolkits=[
@@ -255,8 +262,9 @@ class NudgeEngine:
                 return result
 
             stage = "agent"
+            context = await self._build_context(intent.intent, intent.confidence)
             response = await asyncio.wait_for(
-                self._agent.run_once(text),
+                self._agent.run_once(text, context=context),
                 timeout=self._config.agent_timeout_s,
             )
             t_agent = time.time()
@@ -349,16 +357,84 @@ class NudgeEngine:
         )
         return str(result.text).strip()
 
+    # ── Context for agent ──────────────────────────────────────────
+
+    async def _build_context(self, intent: str = "", confidence: float = 0.0) -> str:
+        """Build dynamic context: datetime, intent, active tasks, alarms."""
+        now = datetime.now().astimezone()
+        parts: list[str] = [
+            f"Current time: {now.strftime('%Y-%m-%d %H:%M %Z (%A)')}",
+        ]
+        if intent:
+            parts.append(f"Classified intent: {intent} ({confidence:.0%})")
+        try:
+            tasks = await self._task_tk.query_all_tasks("pending")
+            if tasks:
+                lines = [
+                    f"- {t['description']} ({t.get('priority', 'medium')})" for t in tasks[:10]
+                ]
+                parts.append(f"Active tasks ({len(tasks)}):\n" + "\n".join(lines))
+        except Exception:
+            logger.debug("_build_context: failed to fetch tasks", exc_info=True)
+        try:
+            alarms = await self._alarm_tk.query_all_pending_alarms()
+            if alarms:
+                lines = [f"- {a['description']} at {a.get('fire_at', '?')}" for a in alarms[:10]]
+                parts.append(f"Pending alarms ({len(alarms)}):\n" + "\n".join(lines))
+        except Exception:
+            logger.debug("_build_context: failed to fetch alarms", exc_info=True)
+        return "\n\n".join(parts)
+
     # ── Data access for host apps ────────────────────────────────
+
+    # ── Tasks ─────────────────────────────────────────────────
 
     async def get_tasks(self, status: str = "pending") -> list[dict[str, Any]]:
         return cast(list[dict[str, Any]], await self._task_tk.query_all_tasks(status))
 
+    async def complete_task(self, task_id: str) -> str:
+        return await self._task_tk.complete_task(task_id)
+
+    async def uncomplete_task(self, task_id: str) -> str:
+        return await self._task_tk.uncomplete_task(task_id)
+
+    async def update_task(
+        self,
+        task_id: str,
+        description: str = "",
+        priority: str = "",
+        due: str = "",
+    ) -> str:
+        return await self._task_tk.update_task(
+            task_id, description=description, priority=priority, due=due
+        )
+
+    async def delete_task(self, task_id: str) -> str:
+        return await self._task_tk.delete_task(task_id)
+
+    # ── Alarms ───────────────────────────────────────────────
+
     async def get_alarms(self) -> list[dict[str, Any]]:
         return cast(list[dict[str, Any]], await self._alarm_tk.query_all_pending_alarms())
 
+    async def cancel_alarm(self, alarm_id: str) -> str:
+        return await self._alarm_tk.cancel_alarm(alarm_id)
+
+    # ── Notes ────────────────────────────────────────────────
+
     def get_notes(self, limit: int = 20) -> list[dict[str, object]]:
         return cast(list[dict[str, object]], self._knowledge_tk.query_recent(limit))
+
+    async def search_notes(self, query: str, limit: int = 5) -> str:
+        return await self._knowledge_tk.search_notes(query, str(limit))
+
+    async def update_note(self, note_id: str, content: str = "", tags: str = "") -> str:
+        return await self._knowledge_tk.update_note(note_id, content=content, tags=tags)
+
+    async def delete_note(self, note_id: str) -> str:
+        return await self._knowledge_tk.delete_note(note_id)
+
+    # ── Sessions ─────────────────────────────────────────────
 
     def get_recent_sessions(self, limit: int = 20) -> list[VoiceSession]:
         return list(reversed(self._sessions[-limit:]))

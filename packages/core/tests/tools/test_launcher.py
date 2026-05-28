@@ -19,7 +19,7 @@ class TestLaunchApp:
             patch("nudge.tools.launcher.subprocess.Popen") as mock_popen,
         ):
             result = launch_app("codex", "fix the auth bug")
-            mock_popen.assert_called_once_with(["codex", "fix the auth bug"])
+            mock_popen.assert_called_once_with(["codex", "--", "fix the auth bug"])
             assert "Launched" in result
             assert "Codex" in result
 

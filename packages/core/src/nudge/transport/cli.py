@@ -357,7 +357,7 @@ def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
     console.print(
         "  /health, /api/process, /api/transcribe, /api/tasks, /api/alarms, /api/history\n"
     )
-    uvicorn.run(server_app, host=host, port=port, log_level="warning")
+    uvicorn.run(server_app, host=host, port=port, log_level="info")
 
 
 @app.command()
