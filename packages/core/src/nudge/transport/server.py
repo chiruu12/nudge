@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 from importlib.metadata import version as pkg_version
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
@@ -98,7 +98,9 @@ def create_app() -> FastAPI:
         return result.model_dump()
 
     @server.post("/api/transcribe")
-    async def transcribe_audio(file: UploadFile = File(...), sample_rate: int = 16000):
+    async def transcribe_audio(
+        file: UploadFile = File(...), sample_rate: int = Form(default=16000)
+    ):
         audio_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
         if len(audio_bytes) > MAX_UPLOAD_BYTES:
             raise HTTPException(status_code=413, detail="Audio file too large (max 10 MB)")
@@ -112,7 +114,7 @@ def create_app() -> FastAPI:
         return {"text": text}
 
     @server.post("/api/process-audio")
-    async def process_audio(file: UploadFile = File(...), sample_rate: int = 16000):
+    async def process_audio(file: UploadFile = File(...), sample_rate: int = Form(default=16000)):
         audio_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
         if len(audio_bytes) > MAX_UPLOAD_BYTES:
             raise HTTPException(status_code=413, detail="Audio file too large (max 10 MB)")
