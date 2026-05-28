@@ -43,8 +43,9 @@ server = [
 nudge = "nudge.transport.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/chiruu12/nudge"
+Homepage = "https://nudge-ai.org"
 Repository = "https://github.com/chiruu12/nudge"
+Issues = "https://github.com/chiruu12/nudge/issues"
 
 [build-system]
 requires = ["hatchling"]
