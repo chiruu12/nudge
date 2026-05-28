@@ -18,8 +18,16 @@ def mock_engine():
     engine.process_text = AsyncMock()
     engine.transcribe = AsyncMock()
     engine.get_tasks = AsyncMock(return_value=[])
+    engine.complete_task = AsyncMock(return_value="Task completed.")
+    engine.uncomplete_task = AsyncMock(return_value="Task reopened.")
+    engine.update_task = AsyncMock(return_value="Task updated.")
+    engine.delete_task = AsyncMock(return_value="Task deleted.")
     engine.get_alarms = AsyncMock(return_value=[])
+    engine.cancel_alarm = AsyncMock(return_value="Alarm cancelled.")
     engine.get_notes = MagicMock(return_value=[])
+    engine.search_notes = AsyncMock(return_value="No matches.")
+    engine.update_note = AsyncMock(return_value="Note updated.")
+    engine.delete_note = AsyncMock(return_value="Deleted.")
     engine.get_recent_sessions = MagicMock(return_value=[])
     engine.shutdown = AsyncMock()
     engine.checker = MagicMock()
@@ -49,6 +57,16 @@ class TestHealth:
         data = resp.json()
         assert data["status"] == "ok"
         assert "version" in data
+
+
+class TestConfig:
+    def test_config(self, client: TestClient) -> None:
+        resp = client.get("/api/config")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "stt_provider" in data
+        assert "llm_provider" in data
+        assert "hotkey" in data
 
 
 class TestCors:
@@ -164,6 +182,12 @@ class TestListEndpoints:
         assert len(data) == 1
         assert data[0]["content"] == "API needs OAuth2"
 
+    def test_list_tasks_with_status(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.get_tasks.return_value = []
+        resp = client.get("/api/tasks?status=done")
+        assert resp.status_code == 200
+        mock_engine.get_tasks.assert_called_with(status="done")
+
     def test_history_empty(self, client: TestClient, mock_engine: MagicMock) -> None:
         mock_engine.get_recent_sessions.return_value = []
 
@@ -172,3 +196,53 @@ class TestListEndpoints:
         assert resp.status_code == 200
         assert resp.json() == []
         mock_engine.get_recent_sessions.assert_called_once_with(limit=50)
+
+
+class TestActionEndpoints:
+    def test_complete_task(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.post("/api/tasks/task-abc123/complete")
+        assert resp.status_code == 200
+        assert "completed" in resp.json()["message"].lower()
+        mock_engine.complete_task.assert_called_once_with("task-abc123")
+
+    def test_uncomplete_task(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.post("/api/tasks/task-abc123/uncomplete")
+        assert resp.status_code == 200
+        assert "reopened" in resp.json()["message"].lower()
+        mock_engine.uncomplete_task.assert_called_once_with("task-abc123")
+
+    def test_update_task(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.put(
+            "/api/tasks/task-abc123",
+            json={"priority": "high"},
+        )
+        assert resp.status_code == 200
+        assert "updated" in resp.json()["message"].lower()
+
+    def test_delete_task(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.delete("/api/tasks/task-abc123")
+        assert resp.status_code == 200
+        mock_engine.delete_task.assert_called_once_with("task-abc123")
+
+    def test_cancel_alarm(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.delete("/api/alarms/alarm-abc123")
+        assert resp.status_code == 200
+        mock_engine.cancel_alarm.assert_called_once_with("alarm-abc123")
+
+    def test_search_notes(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.get("/api/notes/search?q=test")
+        assert resp.status_code == 200
+        assert "result" in resp.json()
+
+    def test_update_note(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.put(
+            "/api/notes/mem-abc123",
+            json={"content": "updated content"},
+        )
+        assert resp.status_code == 200
+        assert "updated" in resp.json()["message"].lower()
+
+    def test_delete_note(self, client: TestClient, mock_engine: MagicMock) -> None:
+        resp = client.delete("/api/notes/mem-abc123")
+        assert resp.status_code == 200
+        mock_engine.delete_note.assert_called_once_with("mem-abc123")

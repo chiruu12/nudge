@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 from typing import NotRequired, TypedDict
@@ -70,9 +71,10 @@ def launch_app(app_name: str, prompt: str = "") -> str:
                 return f"Could not open {app['name']}: {e}"
         return f"{app['name']} is not installed. Install it first."
 
-    # Build command
+    # Build command — use -- to prevent prompt from being parsed as flags
     args = [cmd]
     if prompt and app["args_template"]:
+        args.append("--")
         args.extend([a.replace("{prompt}", prompt) for a in app["args_template"]])
 
     try:
@@ -88,8 +90,6 @@ def launch_app(app_name: str, prompt: str = "") -> str:
 
 def list_available_apps() -> list[str]:
     """Return names of apps that are installed and available."""
-    import os
-
     available = []
     for key, app in APPS.items():
         if shutil.which(app["cmd"]):

@@ -34,13 +34,25 @@ class NudgeConfig(BaseModel):
     max_text_length: int = Field(default=10_000, gt=0)
     intents: dict[str, str] = Field(
         default_factory=lambda: {
-            "task": "user wants to create or manage a todo item",
-            "alarm": "user wants to set a timer or alarm",
-            "note": "user wants to save or recall information",
-            "query": "user is asking a question",
-            "link": "user wants to save or look up a URL",
-            "clipboard": "user wants to copy something to clipboard",
-            "launch": "user wants to open an app or coding tool",
+            "task": (
+                "user wants to create, complete, or manage a todo/task."
+                " No specific time. (e.g. 'add task buy milk', 'I need to do X')"
+            ),
+            "alarm": (
+                "user wants a timed reminder. MUST mention a specific time or duration."
+                " (e.g. 'remind me at 3pm', 'in 5 minutes', 'wake me at 7am')"
+            ),
+            "note": (
+                "user wants to save, recall, or search information"
+                " (e.g. remember that, what do I know about)"
+            ),
+            "query": "user is asking a general question (e.g. what is, how do I)",
+            "link": (
+                "user wants to save, open, copy, or remove a named URL"
+                " (e.g. save my github as, open my linkedin)"
+            ),
+            "clipboard": "user wants to copy text to clipboard",
+            "launch": "user wants to open a coding tool or app (e.g. open codex)",
         }
     )
 
