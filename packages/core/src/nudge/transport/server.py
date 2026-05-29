@@ -4,16 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from importlib.metadata import version as pkg_version
+from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
+from nudge.app.env_file import upsert_env_key
+from nudge.app.setup import _KEY_MAP, env_key_set
+from nudge.app.validate import run_validation
 from nudge.core.config import NudgeConfig
 from nudge.core.engine import NudgeEngine
 from nudge.core.logging import setup_logging
+from nudge.core.providers import _PROVIDERS
+from nudge.core.stats import compute_stats
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +53,48 @@ class TaskUpdate(BaseModel):
 class NoteUpdate(BaseModel):
     content: str = ""
     tags: str = ""
+
+
+class ConfigUpdate(BaseModel):
+    stt_provider: str | None = None
+    llm_provider: str | None = None
+    llm_tier: str | None = None
+    hotkey: str | None = None
+    preset: str | None = None
+
+
+class KeyUpdate(BaseModel):
+    provider: str
+    api_key: str
+
+    @field_validator("api_key")
+    @classmethod
+    def not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("api_key must not be empty")
+        return v
+
+
+class ValidateRequest(BaseModel):
+    provider: str
+    kind: str  # "stt" | "llm"
+    api_key: str | None = None
+
+
+class SoulUpdate(BaseModel):
+    content: str
+
+
+class LinkSave(BaseModel):
+    name: str
+    url: str
+
+
+SOUL_PATH = Path.home() / ".nudge" / "soul.md"
+
+
+_STT_PROVIDERS = ["groq", "deepgram", "whisper"]
+_TIERS = ["lite", "standard", "pro"]
 
 
 def create_app() -> FastAPI:
@@ -206,5 +255,104 @@ def create_app() -> FastAPI:
     async def get_history():
         sessions = server.state.engine.get_recent_sessions(limit=50)
         return [s.to_log_dict() for s in sessions]
+
+    # ── Stats ────────────────────────────────────────────────
+
+    @server.get("/api/stats")
+    async def get_stats():
+        engine = server.state.engine
+        stats = compute_stats(engine.log_path)
+        stats["task_count"] = len(await engine.get_tasks(status="pending"))
+        stats["alarm_count"] = len(await engine.get_alarms())
+        # The knowledge toolkit has no count API, so fetch up to a high bound.
+        # Exact for any realistic library; avoids unbounded loads on each poll.
+        stats["note_count"] = len(engine.get_notes(limit=10_000))
+        return stats
+
+    # ── Config (full read + write) ───────────────────────────
+
+    @server.get("/api/config/full")
+    async def get_config_full():
+        cfg = server.state.engine.config
+        return {
+            "stt_provider": cfg.stt_provider,
+            "llm_provider": cfg.llm_provider,
+            "llm_tier": cfg.llm_tier,
+            "hotkey": cfg.hotkey,
+            "version": pkg_version("nudge-ai"),
+            "available_llm_providers": list(_PROVIDERS),
+            "available_stt_providers": _STT_PROVIDERS,
+            "available_tiers": _TIERS,
+            "keys_present": {p: env_key_set(p) for p in _KEY_MAP},
+        }
+
+    @server.post("/api/config")
+    async def update_config(body: ConfigUpdate):
+        # Start from a preset (if given) or the current config, apply overrides,
+        # then validate by reconstructing the model. Config changes only take
+        # effect after the backend restarts (the running engine holds providers
+        # and the alarm checker), so we signal restart_required to the client.
+        try:
+            if body.preset:
+                base = NudgeConfig.from_preset(body.preset)
+            else:
+                base = server.state.engine.config
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        merged = base.model_dump()
+        for field in ("stt_provider", "llm_provider", "llm_tier", "hotkey"):
+            value = getattr(body, field)
+            if value is not None:
+                merged[field] = value
+
+        try:
+            new_config = NudgeConfig(**merged)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Invalid config: {e}")
+
+        new_config.save()
+        return {"saved": True, "restart_required": True}
+
+    @server.post("/api/config/keys")
+    async def save_key(body: KeyUpdate):
+        env_var = _KEY_MAP.get(body.provider)
+        if not env_var:
+            raise HTTPException(status_code=422, detail=f"Unknown provider: {body.provider!r}")
+        upsert_env_key(env_var, body.api_key)
+        os.environ[env_var] = body.api_key  # available immediately for validation
+        return {"saved": True}
+
+    @server.post("/api/validate")
+    async def validate_provider(body: ValidateRequest):
+        ok, message = await run_validation(body.provider, body.kind, body.api_key)
+        return {"ok": ok, "message": message}
+
+    # ── Soul (persona) ───────────────────────────────────────
+
+    @server.get("/api/soul")
+    async def get_soul():
+        content = SOUL_PATH.read_text(encoding="utf-8") if SOUL_PATH.exists() else ""
+        return {"content": content}
+
+    @server.post("/api/soul")
+    async def save_soul(body: SoulUpdate):
+        SOUL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        SOUL_PATH.write_text(body.content, encoding="utf-8")
+        return {"saved": True, "restart_required": True}
+
+    # ── Named links ──────────────────────────────────────────
+
+    @server.get("/api/links")
+    async def list_links_route():
+        return server.state.engine.get_links()
+
+    @server.post("/api/links")
+    async def save_link_route(body: LinkSave):
+        return {"message": server.state.engine.save_link(body.name, body.url)}
+
+    @server.delete("/api/links/{name}")
+    async def delete_link_route(name: str):
+        return {"message": server.state.engine.remove_link(name)}
 
     return server

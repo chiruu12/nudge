@@ -20,6 +20,12 @@ _KEY_MAP = {
 }
 
 
+def env_key_set(provider: str) -> bool:
+    """True if the provider's API key env var is present (and non-empty)."""
+    env_key = _KEY_MAP.get(provider)
+    return bool(env_key and os.environ.get(env_key, ""))
+
+
 def _check_env_key(provider: str) -> None:
     """Check if the required env key exists and report."""
     env_key = _KEY_MAP.get(provider)

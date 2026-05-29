@@ -4,16 +4,23 @@ struct DashboardView: View {
     @ObservedObject var recorder: AudioRecorder
     @ObservedObject var vm: DashboardViewModel
     @ObservedObject var voice: VoiceController
+    @ObservedObject var app: AppController
     @State private var selectedTab: Tab = .nudge
     @State private var selectedTaskID: String?
     @State private var commandText = ""
     @State private var showCommandInput = false
     @FocusState private var commandFocused: Bool
 
-    init(recorder: AudioRecorder, viewModel: DashboardViewModel, voiceController: VoiceController) {
+    init(
+        recorder: AudioRecorder,
+        viewModel: DashboardViewModel,
+        voiceController: VoiceController,
+        appController: AppController
+    ) {
         self.recorder = recorder
         self.vm = viewModel
         self.voice = voiceController
+        self.app = appController
     }
 
     enum Tab: String, CaseIterable {
@@ -326,52 +333,15 @@ struct DashboardView: View {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private var tasksFullView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "pending", count: vm.tasks.count)
-            if vm.tasks.isEmpty {
-                EmptyHint(text: "No pending tasks. Say \"add task ...\"")
-            } else {
-                ForEach(vm.tasks) { task in
-                    ExpandableTaskRow(
-                        task: task,
-                        vm: vm,
-                        selectedTaskID: $selectedTaskID
-                    ).id(task.id)
-                }
-            }
-            if !vm.doneTasks.isEmpty {
-                SectionHeader(title: "completed", count: vm.doneTasks.count, color: NudgeTheme.textDim)
-                ForEach(vm.doneTasks) { task in
-                    ExpandableTaskRow(
-                        task: task,
-                        vm: vm,
-                        selectedTaskID: $selectedTaskID
-                    ).id(task.id)
-                }
-            }
-        }.padding(16)
+        TasksSectionView(vm: vm, selectedTaskID: $selectedTaskID)
     }
 
     private var alarmsFullView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "pending alarms", count: vm.alarms.count)
-            if vm.alarms.isEmpty {
-                EmptyHint(text: "No alarms. Say \"remind me at ...\"")
-            } else {
-                ForEach(vm.alarms) { alarm in ExpandableAlarmRow(alarm: alarm, vm: vm) }
-            }
-        }.padding(16)
+        AlarmsSectionView(vm: vm)
     }
 
     private var notesFullView: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "notes", count: vm.notes.count, color: NudgeTheme.intentNote)
-            if vm.notes.isEmpty {
-                EmptyHint(text: "No notes yet. Say \"remember ...\"")
-            } else {
-                ForEach(vm.notes) { note in ExpandableNoteRow(note: note, vm: vm) }
-            }
-        }.padding(16)
+        NotesSectionView(vm: vm)
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -428,6 +398,35 @@ struct DashboardView: View {
                     SettingsRow(label: "Tasks", value: "\(vm.tasks.count) pending")
                     SettingsRow(label: "Alarms", value: "\(vm.alarms.count) active")
                     SettingsRow(label: "Notes", value: "\(vm.notes.count) saved")
+                }
+            }
+
+            CardView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("app").font(.system(size: 12, weight: .medium))
+                        .foregroundColor(NudgeTheme.textSecondary)
+                    Toggle(isOn: Binding(
+                        get: { app.launchAtLogin },
+                        set: { app.setLaunchAtLogin($0) }
+                    )) {
+                        Text("Launch at login").font(.system(size: 12))
+                            .foregroundColor(NudgeTheme.textSecondary)
+                    }
+                    .toggleStyle(.switch)
+                    .tint(NudgeTheme.accent)
+
+                    HStack(spacing: 8) {
+                        SettingsActionButton(
+                            label: "Restart backend",
+                            icon: "arrow.clockwise",
+                            color: NudgeTheme.accent
+                        ) { app.restartBackend() }
+                        SettingsActionButton(
+                            label: "Quit Nudge",
+                            icon: "power",
+                            color: NudgeTheme.textSecondary
+                        ) { app.quit() }
+                    }
                 }
             }
         }.padding(16)
@@ -827,6 +826,28 @@ struct SettingsRow: View {
             Text(value).font(.system(size: 12, design: .monospaced))
                 .foregroundColor(NudgeTheme.textPrimary)
         }
+    }
+}
+
+struct SettingsActionButton: View {
+    let label: String
+    let icon: String
+    var color: Color = NudgeTheme.accent
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 10, weight: .semibold))
+                Text(label).font(.system(size: 11, weight: .medium))
+            }
+            .foregroundColor(color)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(color.opacity(0.12))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(color.opacity(0.35), lineWidth: 1))
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
     }
 }
 

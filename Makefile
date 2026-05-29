@@ -1,4 +1,4 @@
-.PHONY: dev serve widget run ci test lint all
+.PHONY: dev serve widget run ci test lint all app dmg icon signing-cert
 
 # Start everything — server + widget
 all: serve widget
@@ -15,6 +15,22 @@ widget:
 # Build the widget without running
 widget-build:
 	@cd packages/widget && swift build
+
+# Generate the app icon (packages/widget/Nudge.icns) from the source PNG
+icon:
+	@packages/widget/scripts/make-icon.sh
+
+# Create a stable self-signed code-signing identity (run once, optional)
+signing-cert:
+	@packages/widget/scripts/make-signing-cert.sh
+
+# Build dist/Nudge.app (universal, ad-hoc signed)
+app:
+	@packages/widget/scripts/build-app.sh
+
+# Build dist/Nudge-0.1.0.dmg (depends on app)
+dmg: app
+	@packages/widget/scripts/make-dmg.sh
 
 # Start CLI voice assistant
 run:

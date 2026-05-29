@@ -1,3 +1,7 @@
 # Swift
 .build/
 .swiftpm/
+
+# Icon build artifacts (Nudge.icns is committed)
+Nudge.iconset/
+.icon-1024.png

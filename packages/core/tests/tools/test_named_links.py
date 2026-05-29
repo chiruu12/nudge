@@ -185,3 +185,32 @@ class TestCorruptFileRecovery:
         save_link("Test", "https://test.com", links_path)
         backup = links_path.with_suffix(".json.bak")
         assert backup.read_text() == "{broken json"
+
+
+class TestClipboardSave:
+    def test_save_this_derives_name_from_url(self, links_path: Path) -> None:
+        def reader() -> str:
+            return "https://www.linkedin.com/in/chiruu12/"
+
+        msg = handle_link_command("save this link", data_dir=links_path.parent, reader=reader)
+        assert "linkedin" in msg.lower()
+        from nudge.tools.named_links import load_links
+
+        assert load_links(links_path)["linkedin"]["url"].endswith("chiruu12/")
+
+    def test_save_this_as_name(self, links_path: Path) -> None:
+        def reader() -> str:
+            return "check this https://github.com/chiruu12 out"
+
+        msg = handle_link_command("save this as github", data_dir=links_path.parent, reader=reader)
+        assert "github" in msg.lower()
+        from nudge.tools.named_links import load_links
+
+        assert load_links(links_path)["github"]["url"] == "https://github.com/chiruu12"
+
+    def test_save_clipboard_no_url(self, links_path: Path) -> None:
+        def reader() -> str:
+            return "just some text, no link"
+
+        msg = handle_link_command("save this", data_dir=links_path.parent, reader=reader)
+        assert "copy a link" in msg.lower()

@@ -8,6 +8,7 @@ class DashboardViewModel: ObservableObject {
     @Published var doneTasks: [NudgeTask] = []
     @Published var alarms: [NudgeAlarm] = []
     @Published var notes: [APINote] = []
+    @Published var links: [NamedLink] = []
     @Published var recentActivity: [SessionEntry] = []
     @Published var isBackendOnline = false
     @Published var searchText = ""
@@ -15,6 +16,8 @@ class DashboardViewModel: ObservableObject {
     @Published var lastResult: SessionResult?
     @Published var lastDictation: String?
     @Published var backendConfig: NudgeConfigInfo?
+    @Published var stats: NudgeStats?
+    @Published var configFull: ConfigFull?
     @Published var isFirstLoad = true
     @Published var lastRefresh: Date?
 
@@ -58,15 +61,21 @@ class DashboardViewModel: ObservableObject {
             async let dt = APIClient.shared.doneTasks()
             async let a = APIClient.shared.alarms()
             async let n = APIClient.shared.notes()
+            async let lk = APIClient.shared.links()
             async let h = APIClient.shared.history()
             async let c = APIClient.shared.config()
+            async let s = APIClient.shared.stats()
+            async let cf = APIClient.shared.configFull()
 
             let newTasks = await t
             let newDoneTasks = await dt
             let newAlarms = await a
             let newNotes = await n
+            let newLinks = await lk
             let newActivity = await h
             let newConfig = await c
+            let newStats = await s
+            let newConfigFull = await cf
 
             withAnimation(.easeInOut(duration: 0.2)) {
                 if isBackendOnline != online { isBackendOnline = online }
@@ -74,8 +83,11 @@ class DashboardViewModel: ObservableObject {
                 if doneTasks != newDoneTasks { doneTasks = newDoneTasks }
                 if alarms != newAlarms { alarms = newAlarms }
                 if notes != newNotes { notes = newNotes }
+                if links != newLinks { links = newLinks }
                 if recentActivity != newActivity { recentActivity = newActivity }
                 if backendConfig != newConfig { backendConfig = newConfig }
+                if stats != newStats { stats = newStats }
+                if configFull != newConfigFull { configFull = newConfigFull }
                 isFirstLoad = false
                 lastRefresh = Date()
             }
@@ -128,6 +140,16 @@ class DashboardViewModel: ObservableObject {
 
     func deleteNote(_ note: APINote) async {
         _ = await APIClient.shared.deleteNote(note.id)
+        await refresh()
+    }
+
+    func saveLink(name: String, url: String) async {
+        _ = await APIClient.shared.saveLink(name: name, url: url)
+        await refresh()
+    }
+
+    func deleteLink(_ link: NamedLink) async {
+        _ = await APIClient.shared.deleteLink(link.name)
         await refresh()
     }
 

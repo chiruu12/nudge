@@ -162,6 +162,77 @@ actor APIClient {
         }
     }
 
+    // MARK: - Stats & Config
+
+    func stats() async -> NudgeStats? {
+        guard let data = try? await fetch("api/stats") else { return nil }
+        do {
+            return try JSONDecoder().decode(NudgeStats.self, from: data)
+        } catch {
+            NSLog("[Nudge API] stats decode error: \(error)")
+            return nil
+        }
+    }
+
+    func configFull() async -> ConfigFull? {
+        guard let data = try? await fetch("api/config/full") else { return nil }
+        do {
+            return try JSONDecoder().decode(ConfigFull.self, from: data)
+        } catch {
+            NSLog("[Nudge API] config/full decode error: \(error)")
+            return nil
+        }
+    }
+
+    /// POST /api/config with only the changed fields. Returns true on 200.
+    func saveConfig(_ fields: [String: String]) async -> Bool {
+        await postJSONOK("api/config", body: fields)
+    }
+
+    /// POST /api/config/keys. Returns true on 200.
+    func saveKey(provider: String, apiKey: String) async -> Bool {
+        await postJSONOK("api/config/keys", body: ["provider": provider, "api_key": apiKey])
+    }
+
+    /// GET /api/links — saved named links.
+    func links() async -> [NamedLink] {
+        guard let data = try? await fetch("api/links") else { return [] }
+        return (try? JSONDecoder().decode([NamedLink].self, from: data)) ?? []
+    }
+
+    /// POST /api/links. Returns true on 200.
+    func saveLink(name: String, url: String) async -> Bool {
+        await postJSONOK("api/links", body: ["name": name, "url": url])
+    }
+
+    /// DELETE /api/links/{name}. Returns true on 200.
+    func deleteLink(_ name: String) async -> Bool {
+        let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+        return await delete("api/links/\(encoded)")
+    }
+
+    /// GET /api/soul — the persona/instructions markdown.
+    func soul() async -> String? {
+        guard let data = try? await fetch("api/soul") else { return nil }
+        struct SoulResponse: Codable { let content: String }
+        return (try? JSONDecoder().decode(SoulResponse.self, from: data))?.content
+    }
+
+    /// POST /api/soul. Returns true on 200.
+    func saveSoul(_ content: String) async -> Bool {
+        await postJSONOK("api/soul", body: ["content": content])
+    }
+
+    /// POST /api/validate — runs a real test call on the backend.
+    func validate(provider: String, kind: String, apiKey: String?) async -> ValidateResult {
+        var body: [String: String] = ["provider": provider, "kind": kind]
+        if let apiKey, !apiKey.isEmpty { body["api_key"] = apiKey }
+        guard let result: ValidateResult = await postJSON("api/validate", body: body) else {
+            return ValidateResult(ok: false, message: "Could not reach the Nudge server")
+        }
+        return result
+    }
+
     // MARK: - Actions
 
     func completeTask(_ taskId: String) async -> Bool {
@@ -231,5 +302,32 @@ actor APIClient {
         let url = base.appendingPathComponent(path)
         let (data, _) = try await session.data(from: url)
         return data
+    }
+
+    /// POST a JSON body and decode the response into T. Returns nil on any failure.
+    private func postJSON<T: Decodable>(_ path: String, body: [String: String]) async -> T? {
+        let url = base.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(body)
+        guard let (data, _) = try? await session.data(for: request) else { return nil }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            NSLog("[Nudge API] postJSON \(path) decode error: \(error)")
+            return nil
+        }
+    }
+
+    /// POST a JSON body and return whether the status was 200.
+    private func postJSONOK(_ path: String, body: [String: String]) async -> Bool {
+        let url = base.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(body)
+        guard let (_, resp) = try? await session.data(for: request) else { return false }
+        return (resp as? HTTPURLResponse)?.statusCode == 200
     }
 }

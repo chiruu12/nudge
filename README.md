@@ -87,6 +87,55 @@ timezone: America/New_York
 | `nudge soul show` | Display soul.md |
 | `nudge soul edit` | Edit soul.md |
 
+## macOS App (menu-bar widget)
+
+The widget ships as a standalone menu-bar app. It auto-starts the local Python
+server (`nudge serve`) if it isn't already running, so the Python package must be
+installed:
+
+```bash
+pip install nudge-ai      # or: pipx install nudge-ai
+```
+
+### Build
+
+```bash
+make icon          # generate packages/widget/Nudge.icns from the source PNG
+make app           # build dist/Nudge.app (ad-hoc signed)
+make dmg           # build dist/Nudge-0.1.0.dmg
+make signing-cert  # optional, run once: stable self-signed identity
+```
+
+`make icon` reads `packages/widget/icon-source/Nudge.png`, or pass a path:
+`packages/widget/scripts/make-icon.sh /path/to/logo.png`.
+
+`make signing-cert` creates a self-signed "Nudge Dev" code-signing identity in
+your login keychain so the microphone permission survives rebuilds (otherwise
+each `make app` re-prompts). It is not notarization — the Gatekeeper step below
+still applies.
+
+### Using the app
+
+- **Left-click** the menu-bar icon → open the dashboard popover.
+- **Right-click** (or Control-click) the icon → menu with **Open**, **Restart
+  Backend**, **Launch at Login**, and **Quit Nudge**.
+- The same actions live in the dashboard's **Settings** tab.
+
+The app auto-starts `nudge serve` on launch and stops the server it started when
+you quit.
+
+### Install & first launch
+
+Drag **Nudge.app** from the DMG into **Applications**. Because the app is
+ad-hoc signed (not notarized), Gatekeeper blocks a normal double-click the first
+time. To open it:
+
+1. Right-click (or Control-click) **Nudge.app** → **Open**
+2. Click **Open** in the dialog
+
+After this once, it launches normally. On the first voice command, macOS asks for
+**microphone** permission — click Allow.
+
 ## Project Structure
 
 ```

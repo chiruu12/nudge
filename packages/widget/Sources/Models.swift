@@ -132,3 +132,41 @@ struct NudgeConfigInfo: Codable, Equatable {
         case version
     }
 }
+
+struct NudgeStats: Codable, Equatable {
+    let total_commands: Int
+    let commands_by_intent: [String: Int]
+    let success_count: Int
+    let success_rate: Double
+    let avg_duration_ms: Int
+    let avg_stt_ms: Int
+    let avg_intent_ms: Int
+    let avg_agent_ms: Int
+    let time_saved_seconds: Double
+    let task_count: Int
+    let alarm_count: Int
+    let note_count: Int
+}
+
+struct ConfigFull: Codable, Equatable {
+    let stt_provider: String
+    let llm_provider: String
+    let llm_tier: String
+    let hotkey: String
+    let version: String
+    let available_llm_providers: [String]
+    let available_stt_providers: [String]
+    let available_tiers: [String]
+    let keys_present: [String: Bool]
+}
+
+struct ValidateResult: Codable, Equatable {
+    let ok: Bool
+    let message: String
+}
+
+struct NamedLink: Codable, Identifiable, Equatable {
+    let name: String
+    let url: String
+    var id: String { name }
+}

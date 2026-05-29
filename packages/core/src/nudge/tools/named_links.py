@@ -40,9 +40,32 @@ def _save(links: dict[str, dict[str, str]], path: Path) -> None:
     tmp.replace(path)
 
 
+def load_links(path: Path = DEFAULT_LINKS_PATH) -> dict[str, dict[str, str]]:
+    """Public read of the named-links store."""
+    return _load(path)
+
+
 def _validate_url(url: str) -> bool:
     parsed = urlparse(url)
     return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
+def _first_url(text: str) -> str:
+    """Return the first http(s) URL found in text, or ""."""
+    for w in text.split():
+        cleaned = w.strip().strip(".,)>\"'")
+        if _validate_url(cleaned):
+            return cleaned
+    return ""
+
+
+def _name_from_url(url: str) -> str:
+    """Derive a sensible name from a URL host, e.g. www.linkedin.com → linkedin."""
+    host = urlparse(url).netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    parts = host.split(".")
+    return parts[-2] if len(parts) >= 2 else (parts[0] if parts else "link")
 
 
 def save_link(name: str, url: str, path: Path = DEFAULT_LINKS_PATH) -> str:
@@ -118,6 +141,7 @@ def handle_link_command(
     data_dir: str | Path = "",
     opener: object = None,
     copier: object = None,
+    reader: object = None,
 ) -> str:
     """Parse a voice command and dispatch to the right link operation."""
     if data_dir:
@@ -138,11 +162,11 @@ def handle_link_command(
     if lowered in ("list", "show", "list links", "show links", "my links"):
         return list_links(path)
 
-    # save: "save <name> as <url>" or "save <name> <url>"
+    # save: "save <name> as <url>" or "save <name> <url>" (or clipboard-based)
     for verb in ["save", "set", "add", "update"]:
         if lowered.startswith(verb + " "):
             rest = clean[len(verb) + 1 :].strip()
-            return _parse_save(rest, path)
+            return _parse_save(rest, path, reader=reader)
 
     # remove/delete
     for verb in ["remove", "delete", "forget"]:
@@ -177,11 +201,29 @@ def handle_link_command(
     return f"I don't understand the link command: {text.strip()}"
 
 
-def _parse_save(rest: str, path: Path) -> str:
-    """Parse 'my LinkedIn as https://...' or 'LinkedIn https://...'."""
+def _parse_save(rest: str, path: Path, reader: object = None) -> str:
+    """Parse 'my LinkedIn as https://...', 'LinkedIn https://...', or a
+    clipboard-based 'this [as name]' / 'clipboard [as name]'."""
     # Strip "my" prefix
     if rest.lower().startswith("my "):
         rest = rest[3:].strip()
+
+    low = rest.lower()
+
+    # Clipboard-based: "save this", "save this as github", "save clipboard as x"
+    if low in ("this", "clipboard") or low.startswith("this ") or "clipboard" in low:
+        from nudge.tools.clipboard_read import read_clipboard
+
+        content = reader() if reader is not None else read_clipboard()  # type: ignore[operator]
+        url = _first_url(str(content))
+        if not url:
+            return "Copy a link first — I didn't find a URL on your clipboard."
+        name = ""
+        for sep in (" as ", " to ", " = "):
+            if sep in low:
+                name = rest[low.index(sep) + len(sep) :].strip()
+                break
+        return save_link(name or _name_from_url(url), url, path)
 
     # Try "name as url"
     for sep in [" as ", " to ", " = "]:

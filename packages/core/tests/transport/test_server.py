@@ -246,3 +246,115 @@ class TestActionEndpoints:
         resp = client.delete("/api/notes/mem-abc123")
         assert resp.status_code == 200
         mock_engine.delete_note.assert_called_once_with("mem-abc123")
+
+
+class TestStats:
+    def test_stats_merges_counts(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.get_tasks = AsyncMock(return_value=[{"id": "1"}, {"id": "2"}])
+        mock_engine.get_alarms = AsyncMock(return_value=[{"id": "a"}])
+        mock_engine.get_notes = MagicMock(return_value=[])
+        with patch(
+            "nudge.transport.server.compute_stats",
+            return_value={"total_commands": 5, "time_saved_seconds": 120.0},
+        ):
+            resp = client.get("/api/stats")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_commands"] == 5
+        assert data["task_count"] == 2
+        assert data["alarm_count"] == 1
+        assert data["note_count"] == 0
+
+
+class TestConfigFull:
+    def test_config_full(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.config.stt_provider = "groq"
+        mock_engine.config.llm_provider = "groq"
+        mock_engine.config.llm_tier = "standard"
+        mock_engine.config.hotkey = "cmd+shift+n"
+        resp = client.get("/api/config/full")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["llm_provider"] == "groq"
+        assert "groq" in data["available_llm_providers"]
+        assert set(data["keys_present"]) == {"groq", "openai", "anthropic", "deepgram"}
+
+
+class TestConfigWrite:
+    def test_update_config(self, client: TestClient, mock_engine: MagicMock) -> None:
+        from nudge.core.config import NudgeConfig as RealConfig
+
+        mock_engine.config = RealConfig()
+        with (
+            patch("nudge.transport.server.NudgeConfig", RealConfig),
+            patch.object(RealConfig, "save", return_value=None),
+        ):
+            resp = client.post("/api/config", json={"llm_tier": "lite"})
+        assert resp.status_code == 200
+        assert resp.json()["restart_required"] is True
+
+    def test_update_config_unknown_preset(self, client: TestClient) -> None:
+        from nudge.core.config import NudgeConfig as RealConfig
+
+        with patch("nudge.transport.server.NudgeConfig", RealConfig):
+            resp = client.post("/api/config", json={"preset": "does-not-exist"})
+        assert resp.status_code == 422
+
+    def test_save_key(self, client: TestClient) -> None:
+        with patch("nudge.transport.server.upsert_env_key") as mock_upsert:
+            resp = client.post("/api/config/keys", json={"provider": "groq", "api_key": "sk-x"})
+        assert resp.status_code == 200
+        assert resp.json()["saved"] is True
+        mock_upsert.assert_called_once()
+
+    def test_save_key_unknown_provider(self, client: TestClient) -> None:
+        resp = client.post("/api/config/keys", json={"provider": "bogus", "api_key": "x"})
+        assert resp.status_code == 422
+
+    def test_save_key_empty(self, client: TestClient) -> None:
+        resp = client.post("/api/config/keys", json={"provider": "groq", "api_key": "  "})
+        assert resp.status_code == 422
+
+    def test_validate(self, client: TestClient) -> None:
+        with patch(
+            "nudge.transport.server.run_validation",
+            new=AsyncMock(return_value=(True, "groq LLM connected")),
+        ):
+            resp = client.post("/api/validate", json={"provider": "groq", "kind": "llm"})
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True, "message": "groq LLM connected"}
+
+
+class TestLinks:
+    def test_list_links(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.get_links = MagicMock(
+            return_value=[{"name": "LinkedIn", "url": "https://linkedin.com/in/me"}]
+        )
+        resp = client.get("/api/links")
+        assert resp.status_code == 200
+        assert resp.json()[0]["name"] == "LinkedIn"
+
+    def test_save_link(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.save_link = MagicMock(return_value="Saved LinkedIn → https://x")
+        resp = client.post("/api/links", json={"name": "LinkedIn", "url": "https://x"})
+        assert resp.status_code == 200
+        assert "Saved" in resp.json()["message"]
+        mock_engine.save_link.assert_called_once_with("LinkedIn", "https://x")
+
+    def test_delete_link(self, client: TestClient, mock_engine: MagicMock) -> None:
+        mock_engine.remove_link = MagicMock(return_value="Removed LinkedIn.")
+        resp = client.delete("/api/links/linkedin")
+        assert resp.status_code == 200
+        mock_engine.remove_link.assert_called_once_with("linkedin")
+
+
+class TestSoul:
+    def test_soul_roundtrip(self, client: TestClient, tmp_path) -> None:
+        soul = tmp_path / "soul.md"
+        with patch("nudge.transport.server.SOUL_PATH", soul):
+            assert client.get("/api/soul").json() == {"content": ""}
+            resp = client.post("/api/soul", json={"content": "Be concise."})
+            assert resp.status_code == 200
+            assert resp.json()["restart_required"] is True
+            assert client.get("/api/soul").json() == {"content": "Be concise."}
+        assert soul.read_text(encoding="utf-8") == "Be concise."

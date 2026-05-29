@@ -25,7 +25,6 @@ from hive import (
 from hive.routing import IntentRouter
 from hive.stt.base import STTProvider
 from hive.tools.clipboard import ClipboardToolkit
-from hive.tools.links import LinkToolkit
 
 from nudge.core.config import NudgeConfig
 from nudge.core.providers import create_llm, create_router_llm, create_stt
@@ -58,6 +57,9 @@ class NudgeEngine:
 
     def __init__(self, config: NudgeConfig | None = None) -> None:
         load_dotenv()
+        # Keys saved by the app live in ~/.nudge/.env; load them too so they
+        # take effect after a backend restart (a GUI app's CWD has no .env).
+        load_dotenv(Path.home() / ".nudge" / ".env")
         self._config = config or NudgeConfig.load()
         self._sessions: list[VoiceSession] = []
 
@@ -79,8 +81,11 @@ class NudgeEngine:
         self._task_tk = TaskToolkit(db_path=db_path)
         self._alarm_tk = AlarmToolkit(db_path=db_path)
         self._knowledge_tk = KnowledgeToolkit(memory_dir=data_dir)
-        self._link_tk = LinkToolkit(memory_dir=data_dir)
         self._clipboard_tk = ClipboardToolkit(db_path=db_path, memory_dir=data_dir)
+        # Named links are handled deterministically (see _handle_link →
+        # nudge.tools.named_links → ~/.nudge/data/links.json), so hive's
+        # LinkToolkit is intentionally NOT given to the agent — that keeps
+        # links.json the single source of truth across the CLI, API, and app.
 
         # Load soul.md for persona customization
         soul_path = Path.home() / ".nudge" / "soul.md"
@@ -108,7 +113,6 @@ class NudgeEngine:
                 self._task_tk,
                 self._alarm_tk,
                 self._knowledge_tk,
-                self._link_tk,
                 self._clipboard_tk,
             ],
         )
@@ -129,6 +133,10 @@ class NudgeEngine:
     @property
     def checker(self) -> AlarmChecker:
         return self._checker
+
+    @property
+    def log_path(self) -> Path:
+        return self._log_path
 
     # ── Public API ───────────────────────────────────────────────
 
@@ -433,6 +441,26 @@ class NudgeEngine:
 
     async def delete_note(self, note_id: str) -> str:
         return await self._knowledge_tk.delete_note(note_id)
+
+    # ── Named links ──────────────────────────────────────────
+
+    def _links_path(self) -> Path:
+        return Path(self._config.data_dir) / "links.json"
+
+    def get_links(self) -> list[dict[str, str]]:
+        from nudge.tools.named_links import load_links
+
+        return list(load_links(self._links_path()).values())
+
+    def save_link(self, name: str, url: str) -> str:
+        from nudge.tools.named_links import save_link
+
+        return save_link(name, url, self._links_path())
+
+    def remove_link(self, name: str) -> str:
+        from nudge.tools.named_links import remove_link
+
+        return remove_link(name, self._links_path())
 
     # ── Sessions ─────────────────────────────────────────────
 
